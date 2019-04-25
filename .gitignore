@@ -1,0 +1,11 @@
+# 排除
+*.*
+App/
+
+# 例外
+!*.cpp
+!*.h
+!.gitignore
+
+# 排除
+stdafx.*
