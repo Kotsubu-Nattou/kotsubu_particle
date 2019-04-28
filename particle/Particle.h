@@ -14,18 +14,20 @@ namespace
 
 
 
-namespace Particle
+namespace Particle2D
 {
-    // 【基底クラス】ふつうのパーティクル
-    // すべてのパーティクルの基礎となるクラス。他のパーティクルはこれを拡張（継承）したもの
-    class Plain
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【基底クラス】円形のパーティクル
+    // 円系パーティクルの基礎となるクラス。他の円系パーティクルはこれを拡張（継承）したもの
+    //
+    class Circle
     {
     protected:
         // クラス内部で使用する構造体
         struct Element
         {
             Element() :
-                pos(Vec2(0, 0)), size(1.0), radian(0.0), speed(5.0),
+                pos(Vec2(0, 0)), size(50.0), radian(0.0), speed(5.0),
                 color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0), enable(true)
             {}
             Element(Vec2 _pos, double _size, double _radian, double _speed, ColorF _color) :
@@ -45,42 +47,42 @@ namespace Particle
         struct ElementProperty : public Element
         {
             ElementProperty() :
-                randPow(5.0), accelSpeed(-0.1), accelSize(-0.1),
-                accelColor(0.0, -0.02, -0.03, -0.005),
+                randPow(5.0), radianRange(TwoPi),
+                accelSpeed(-0.1), accelSize(-0.01), accelColor(0.0, -0.02, -0.03, -0.001),
                 gravityPow(0.2), gravityRad(Pi / 2.0),
-                radianRange(TwoPi), blendState(s3d::BlendState::Additive)
+                blendState(s3d::BlendState::Additive)
             {}
-            double     randPow;
-            double     accelSpeed;
-            double     accelSize;
-            ColorF     accelColor;
-            double     gravityPow;
-            double     gravityRad;
-            double     radianRange;
-            BlendState blendState;
+            double       randPow;
+            double       radianRange;
+            double       accelSpeed;
+            double       accelSize;
+            ColorF       accelColor;
+            double       gravityPow;
+            double       gravityRad;
+            BlendState   blendState;
         };
 
         // 【フィールド】
         ElementProperty property;
         std::vector<Element> elements;
-    
+
 
 
     public:
         // 【コンストラクタ】
-        Plain(size_t reserve = 3000)
+        Circle(size_t reserve = 3000)
         {
             elements.reserve(reserve);
         }
-    
+
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Plain& pos(  Vec2   pos)   { property.pos   = pos;   return *this; }
-        Plain& size( double size)  { property.size  = size;  return *this; }
-        Plain& speed(double speed) { property.speed = speed; return *this; }
-        Plain& color(Color  color) { property.color = color; return *this; }
+        Circle&   pos(Vec2   pos)   { property.pos   = pos;   return *this; }
+        Circle&  size(double size)  { property.size  = size;  return *this; }
+        Circle& speed(double speed) { property.speed = speed; return *this; }
+        Circle& color(Color  color) { property.color = color; return *this; }
 
-        Plain& angle(double angle)
+        Circle& angle(double angle)
         {
             if (angle < 0.0) {
                 angle = fmod(angle, 360.0) + 360.0;
@@ -88,12 +90,12 @@ namespace Particle
             }
             else if (angle >= 360.0)
                 angle = fmod(angle, 360.0);
-        
+
             property.radian = angle * PiDivStraight;
             return *this;
         }
 
-        Plain& angleRange(double angleRange)
+        Circle& angleRange(double angleRange)
         {
             if (angleRange < 0.0) angleRange = 0.0;
             if (angleRange > 360.0) angleRange = 360.0;
@@ -110,7 +112,7 @@ namespace Particle
 
             for (int i = 0; i < quantity; ++i) {
                 // サイズ
-                fix  = property.size * property.randPow / 30.0;
+                fix = property.size * property.randPow / 30.0;
                 size = property.size + Random(-fix, fix);
                 if (size < 0.5) size = 0.5;
 
@@ -131,8 +133,11 @@ namespace Particle
         // 【メソッド】アップデート
         void update()
         {
-            double windowWidth  = Window::Width();
-            double windowHeight = Window::Height();
+            int margin       = property.size + property.size * property.randPow / 30.0;
+            int windowLeft   = -margin;
+            int windowTop    = -margin;
+            int windowRight  = Window::Width() + margin;
+            int windowBottom = Window::Height() + margin;
             double gravitySin = sin(property.gravityRad);
             double gravityCos = cos(property.gravityRad);
 
@@ -162,8 +167,8 @@ namespace Particle
                 r.pos.y += gravitySin * r.gravity;
 
                 // 画面外かどうか
-                if ((r.pos.x < 0.0) || (r.pos.x > windowWidth) ||
-                    (r.pos.y < 0.0) || (r.pos.y > windowHeight)) {
+                if ((r.pos.x < windowLeft) || (r.pos.x > windowRight) ||
+                    (r.pos.y < windowTop)  || (r.pos.y > windowBottom)) {
                     r.enable = false;
                     continue;
                 }
@@ -178,16 +183,16 @@ namespace Particle
                 [](Element &element) { return !element.enable; });
             elements.erase(dustIt, elements.end());
 
-            Print << U"elements.size: " << elements.size();
+            //Print << U"elements.size: " << elements.size();
         }
 
 
-    
+
         // 【メソッド】ドロー
         void draw()
         {
             s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
-        
+
             for (auto &r : elements)
                 s3d::Circle(r.pos, r.size).draw(r.color);
         }
@@ -197,8 +202,10 @@ namespace Particle
 
 
 
-    // 【派生クラス】微光のパーティクル（なめらかだが重い）
-    class Light : public Plain
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【Circleを継承】淡い光のパーティクル（なめらかだが重い）
+    //
+    class CircleLight : public Circle
     {
     public:
         // 【メソッド】ドロー（オーバーライド）
@@ -215,8 +222,10 @@ namespace Particle
 
 
 
-    // 【派生クラス】煙のパーティクル
-    class Smoke : public Plain
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【Circleを継承】煙のパーティクル
+    //
+    class CircleSmoke : public Circle
     {
     public:
         // 【メソッド】ドロー（オーバーライド）
@@ -230,6 +239,268 @@ namespace Particle
                 for (auto &r : elements)
                     s3d::Circle(r.pos, r.size - r.size * fix).draw(r.color);
             }
+        }
+    };
+
+
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【基底クラス】点のパーティクル
+    // 点系パーティクルの基礎となるクラス。他の点系パーティクルはこれを拡張（継承）したもの。
+    // 最も多くのパーティクルを描画できる。ただし、このクラスはパーティクル数が
+    // 「0」でも画面全体のイメージを複製＆描画するため、最低負荷は高め。
+    // scaleメソッドで 1.0～8.0 が指定可能。高いほど拡大されるが負荷を軽減できる。
+    // ※この仕組みは、図形の描画が重く、ブレンディングも効かないため「点系」でのみ採用
+    //
+    class Dot
+    {
+    protected:
+        // クラス内部で使用する構造体
+        struct Element
+        {
+            Element() :
+                pos(Vec2(0, 0)), radian(0.0), speed(3.0),
+                color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0), enable(true)
+            {}
+            Element(Vec2 _pos, double _radian, double _speed, ColorF _color) :
+                pos(_pos), radian(_radian), speed(_speed), color(_color), gravity(0.0), enable(true)
+            {}
+            Vec2   pos;
+            double radian;
+            double speed;
+            ColorF color;
+            double gravity;
+            bool   enable;
+        };
+
+
+        struct ElementProperty : public Element
+        {
+            ElementProperty() :
+                randPow(5.0), accelSpeed(-0.1), accelColor(0.0, -0.02, -0.03, -0.001),
+                radianRange(TwoPi), gravityPow(0.2), gravityRad(Pi / 2.0),
+                blendState(s3d::BlendState::Additive),
+                samplerState(s3d::SamplerState::ClampNearest)
+            {}
+            double         randPow;
+            double         accelSpeed;
+            ColorF         accelColor;
+            double         radianRange;
+            double         gravityPow;
+            double         gravityRad;
+            BlendState     blendState;
+            double         scale;
+            SamplerState   samplerState;
+            DynamicTexture tex;
+            Image          img;
+            Image          blankImg;
+        };
+
+        // 【フィールド】
+        ElementProperty property;
+        std::vector<Element> elements;
+
+
+
+    public:
+        // 【コンストラクタ】
+        Dot(size_t reserve = 10000)
+        {
+            elements.reserve(reserve);
+            scale(3.0);
+        }
+
+
+        // 【セッタ】各初期パラメータ。メソッドチェーン方式
+        Dot&   pos(Vec2   pos)   { property.pos   = pos;   return *this; }
+        Dot& speed(double speed) { property.speed = speed; return *this; }
+        Dot& color(Color  color) { property.color = color; return *this; }
+
+        Dot& angle(double angle)
+        {
+            if (angle < 0.0) {
+                angle = fmod(angle, 360.0) + 360.0;
+                if (angle == 360.0) angle = 0.0;
+            }
+            else if (angle >= 360.0)
+                angle = fmod(angle, 360.0);
+
+            property.radian = angle * PiDivStraight;
+            return *this;
+        }
+
+        Dot& angleRange(double angleRange)
+        {
+            if (angleRange < 0.0) angleRange = 0.0;
+            if (angleRange > 360.0) angleRange = 360.0;
+
+            property.radianRange = angleRange * PiDivStraight;
+            return *this;
+        }
+
+        Dot& smooth(bool val)
+        {
+            property.samplerState = val ? s3d::SamplerState::Default2D :
+                                          s3d::SamplerState::ClampNearest;
+            return *this;
+        }
+
+        Dot& scale(double _scale)
+        {
+            static double oldScale = -1;
+
+            if (_scale < 1.0) _scale = 1.0;
+            if (_scale > 8.0) _scale = 8.0;
+
+            if (_scale != oldScale) {
+                property.scale = _scale;
+
+                // 新しいサイズのブランクイメージを作る
+                property.blankImg = s3d::Image(static_cast<int>(Window::Width()  / property.scale),
+                                               static_cast<int>(Window::Height() / property.scale));
+
+                // 動的テクスチャは「同じサイズ」のイメージを供給しないと描画されないためリセット。
+                // また、テクスチャやイメージのreleaseやclearは、連続で呼び出すとエラーする
+                property.tex.release();
+
+                oldScale = property.scale;
+            }
+
+            return *this;
+        }
+
+
+        // 【メソッド】生成
+        void create(int quantity)
+        {
+            static double fix, rad, speed;
+            Vec2 pos = property.pos / property.scale;
+
+            for (int i = 0; i < quantity; ++i) {
+                // 角度
+                fix = Random(property.radianRange) - property.radianRange / 2.0;
+                rad = fmod(property.radian + fix + TwoPi, TwoPi);
+
+                // スピード
+                speed = property.speed + Random(-property.randPow, property.randPow);
+
+                // 要素を追加
+                elements.emplace_back(Element(pos, rad, speed, property.color));
+            }
+        }
+
+
+
+        // 【メソッド】アップデート
+        void update()
+        {
+            double gravitySin = sin(property.gravityRad);
+            double gravityCos = cos(property.gravityRad);
+
+            for (auto &r : elements) {
+                // 色の変化
+                r.color += property.accelColor;  // ColorFを「+=」した場合、対象はRGBのみ
+                r.color.a += property.accelColor.a;
+                if (r.color.a < 0.01) {
+                    r.enable = false;
+                    continue;
+                }
+
+                // 移動
+                r.pos.x += cos(r.radian) * r.speed;
+                r.pos.y += sin(r.radian) * r.speed;
+
+                // 引力
+                r.gravity += property.gravityPow;
+                r.pos.x += gravityCos * r.gravity;
+                r.pos.y += gravitySin * r.gravity;
+
+                // 画面外かどうか（posはイメージ配列の添え字になるので、そのチェックも兼ねる）
+                if ((r.pos.x < 0.0) || (r.pos.x >= property.blankImg.width()) ||
+                    (r.pos.y < 0.0) || (r.pos.y >= property.blankImg.height())) {
+                    r.enable = false;
+                    continue;
+                }
+
+                // スピードの変化
+                r.speed += property.accelSpeed;
+                if (r.speed < 0.0) r.speed = 0.0;
+            }
+
+            // 無効な粒子を削除
+            auto dustIt = std::remove_if(elements.begin(), elements.end(),
+                [](Element &element) { return !element.enable; });
+            elements.erase(dustIt, elements.end());
+
+            //Print << U"elements.size: " << elements.size();
+        }
+
+
+
+        // 【メソッド】ドロー
+        void draw()
+        {
+            static ColorF src, dst;
+            static Point pos;
+
+            // イメージをクリア（clear関数もあるが連続で呼び出すとエラーする）
+            property.img = property.blankImg;
+
+            // イメージを作成（粒子の数だけ処理。posが確実にimg[n]の範囲内であること）
+            for (auto &r : elements)
+                property.img[r.pos.asPoint()].set(r.color);
+
+            // 動的テクスチャを更新
+            property.tex.fill(property.img);
+
+            // 動的テクスチャをドロー
+            s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
+            property.tex.scaled(property.scale).draw();
+        }
+    };
+
+
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【Dotを継承】点のパーティクル（加算合成）
+    //
+    class DotBlended : public Dot
+    {
+    public:
+        // 【メソッド】ドロー（オーバーライド）
+        void draw()
+        {
+            static ColorF src, dst;
+            static Point pos;
+
+            // イメージをクリア（clear関数もあるが連続で呼び出すとエラーする）
+            property.img = property.blankImg;
+
+            // イメージを作成（粒子の数だけ処理。posが確実にimg[n]の範囲内であること）
+            for (auto &r : elements) {
+                pos = r.pos.asPoint();  // Vec2型のposを、Point型に変換
+
+                // 現在位置（座標）の色を求める（自前の加算ブレンディング）
+                src = property.img[pos];
+                dst.r = src.r + r.color.r * r.color.a;
+                dst.g = src.g + r.color.g * r.color.a;
+                dst.b = src.b + r.color.b * r.color.a;
+                dst.a = src.a + r.color.a;  // 本来は違うかもしれないが見栄えがよい（キラキラする）
+
+                // 求めた色をセット
+                property.img[pos].set(dst);
+            }
+
+            // 動的テクスチャを更新
+            property.tex.fill(property.img);
+
+            // 動的テクスチャをドロー
+            s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
+            property.tex.scaled(property.scale).draw();
         }
     };
 }
