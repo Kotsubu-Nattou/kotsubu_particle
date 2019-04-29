@@ -16,7 +16,7 @@ namespace
 
 namespace Particle2D
 {
-    /////////////////////////////////////////////////////////////////////////////////////
+   /////////////////////////////////////////////////////////////////////////////////////
     // 【基底クラス】すべてのパーティクルの元となる、内部で使用するメンバなど。単独利用不可
     //
     class InternalWorks
@@ -27,6 +27,12 @@ namespace Particle2D
 
         struct Element
         {
+            Vec2   pos;
+            double radian;
+            double speed;
+            ColorF color;
+            double gravity;
+            bool   enable;
             Element() :
                 pos(Vec2(0, 0)), radian(0.0), speed(5.0),
                 color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0), enable(true)
@@ -35,23 +41,11 @@ namespace Particle2D
                 pos(_pos), radian(_radian), speed(_speed), color(_color),
                 gravity(0.0), enable(true)
             {}
-            Vec2   pos;
-            double radian;
-            double speed;
-            ColorF color;
-            double gravity;
-            bool   enable;
         };
 
 
         struct Property
         {
-            Property() :
-                randPow(5.0), radianRange(TwoPi),
-                accelSpeed(-0.1), accelColor(0.0, -0.02, -0.03, -0.001),
-                gravityPow(0.2), gravityRad(Pi / 2.0),
-                blendState(s3d::BlendState::Additive)
-            {}
             double       randPow;
             double       radianRange;
             double       accelSpeed;
@@ -59,8 +53,41 @@ namespace Particle2D
             double       gravityPow;
             double       gravityRad;
             BlendState   blendState;
+            Property() :
+                randPow(5.0), radianRange(TwoPi),
+                accelSpeed(-0.1), accelColor(0.0, -0.02, -0.03, -0.001),
+                gravityPow(0.2), gravityRad(Pi / 2.0),
+                blendState(s3d::BlendState::Additive)
+            {}
         };
 
+
+        double fixSize(double size)
+        {
+            if (size < 1.0)size = 1.0;
+            return size;
+        }
+
+
+        double fixSpeed(double speed)
+        {
+            if (speed < 0.0)speed = 0.0;
+            return speed;
+        }
+
+
+        double fixGravityPower(double power)
+        {
+            if (power < 0.0) power = 0.0;
+            return power;
+        }
+
+
+        double fixRandomPower(double power)
+        {
+            if (power < 0.0)power = 0.0;
+            return power;
+        }
 
         double convRadian(double degree)
         {
@@ -112,20 +139,20 @@ namespace Particle2D
         // クラス内部で使用する構造体
         struct CircleElement : public Element
         {
+            double size;
             CircleElement() : size(5.0)
             {}
             CircleElement(Vec2 _pos, double _size, double _radian, double _speed, ColorF _color) :
                 Element(_pos, _radian, _speed, _color), size(_size)
             {}
-            double size;
         };
 
 
         struct CircleProperty : public Property, public CircleElement
         {
+            double  accelSize;
             CircleProperty() : accelSize(-0.01)
             {}
-            double  accelSize;
         };
 
 
@@ -144,20 +171,26 @@ namespace Particle2D
 
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Circle&   pos(Vec2   pos)   { property.pos   = pos;   return *this; }
-        Circle&  size(double size)  { property.size  = size;  return *this; }
-        Circle& speed(double speed) { property.speed = speed; return *this; }
-        Circle& color(Color  color) { property.color = color; return *this; }
-        //Circle& accelSize(double _)
-        Circle& angle(double degree) { property.radian = convRadian(degree); return *this; }
-        Circle& angleRange(double degree) { property.radianRange = convRadianRange(degree); return *this; }
+        Circle& pos(         Vec2   pos)    { property.pos         = pos;                     return *this; }
+        Circle& size(        double size)   { property.size        = fixSize(size);           return *this; }
+        Circle& speed(       double speed)  { property.speed       = fixSpeed(speed);         return *this; }
+        Circle& color(       Color  color)  { property.color       = color;                   return *this; }
+        Circle& angle(       double degree) { property.radian      = convRadian(degree);      return *this; }
+        Circle& angleRange(  double degree) { property.radianRange = convRadianRange(degree); return *this; }
+        Circle& accelSize(   double size)   { property.accelSize   = size;                    return *this; }
+        Circle& accelSpeed(  double speed)  { property.accelSpeed  = speed;                   return *this; }
+        Circle& accelColor(  Color  color)  { property.accelColor  = color;                   return *this; }
+        Circle& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);  return *this; }
+        Circle& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
+        Circle& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
+        Circle& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
 
 
         // 【メソッド】生成
         void create(int quantity)
         {
             static double fix, size, rad, speed;
-
+            
             for (int i = 0; i < quantity; ++i) {
                 // サイズ
                 fix = property.size * property.randPow / 30.0;
@@ -280,13 +313,13 @@ namespace Particle2D
         CircleSmoke() : layerQuantity(5)
         {}
 
-        // 【セッタ】
+        // 【セッタ】初期パラメータ。メソッドチェーン方式
         CircleSmoke& layer(int quantity)
         { 
             if (quantity < 1) quantity = 1;
             if (quantity > 10) quantity = 10;
             layerQuantity = quantity;
-            return *this; 
+            return *this;
         }
 
         // 【メソッド】ドロー（オーバーライド）
@@ -321,13 +354,13 @@ namespace Particle2D
         // クラス内部で使用する構造体
         struct DotProperty : public Property, public Element
         {
-            DotProperty() : samplerState(s3d::SamplerState::ClampNearest)
-            {}
             double         scale;
             SamplerState   samplerState;
             DynamicTexture tex;
             Image          img;
             Image          blankImg;
+            DotProperty() : samplerState(s3d::SamplerState::ClampNearest)
+            {}
         };
 
 
@@ -347,11 +380,17 @@ namespace Particle2D
 
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Dot&   pos(Vec2   pos)   { property.pos   = pos;   return *this; }
-        Dot& speed(double speed) { property.speed = speed; return *this; }
-        Dot& color(Color  color) { property.color = color; return *this; }
-        Dot& angle(double degree) { property.radian = convRadian(degree); return *this; }
-        Dot& angleRange(double degree) { property.radianRange = convRadianRange(degree); return *this; }
+        Dot& pos(         Vec2   pos)    { property.pos         = pos;                     return *this; }
+        Dot& speed(       double speed)  { property.speed       = fixSpeed(speed);         return *this; }
+        Dot& color(       Color  color)  { property.color       = color;                   return *this; }
+        Dot& angle(       double degree) { property.radian      = convRadian(degree);      return *this; }
+        Dot& angleRange(  double degree) { property.radianRange = convRadianRange(degree); return *this; }
+        Dot& accelSpeed(  double speed)  { property.accelSpeed  = speed;                   return *this; }
+        Dot& accelColor(  Color  color)  { property.accelColor  = color;                   return *this; }
+        Dot& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);  return *this; }
+        Dot& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
+        Dot& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
+        Dot& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
         
         Dot& smooth(bool val)
         {
