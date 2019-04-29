@@ -16,26 +16,20 @@ namespace
 
 namespace Particle2D
 {
-    /////////////////////////////////////////////////////////////////////////////////////
-    // 【基底クラス】円形のパーティクル
-    // 円系パーティクルの基礎となるクラス。他の円系パーティクルはこれを拡張（継承）したもの
-    //
-    class Circle
+    class Internally
     {
     protected:
-        // クラス内部で使用する構造体
         struct Element
         {
             Element() :
-                pos(Vec2(0, 0)), size(50.0), radian(0.0), speed(5.0),
+                pos(Vec2(0, 0)), radian(0.0), speed(5.0),
                 color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0), enable(true)
             {}
-            Element(Vec2 _pos, double _size, double _radian, double _speed, ColorF _color) :
-                pos(_pos), size(_size), radian(_radian), speed(_speed), color(_color),
+            Element(Vec2 _pos, double _radian, double _speed, ColorF _color) :
+                pos(_pos), radian(_radian), speed(_speed), color(_color),
                 gravity(0.0), enable(true)
             {}
             Vec2   pos;
-            double size;
             double radian;
             double speed;
             ColorF color;
@@ -44,27 +38,130 @@ namespace Particle2D
         };
 
 
-        struct ElementProperty : public Element
+        struct Property
         {
-            ElementProperty() :
+            Property() :
                 randPow(5.0), radianRange(TwoPi),
-                accelSpeed(-0.1), accelSize(-0.01), accelColor(0.0, -0.02, -0.03, -0.001),
+                accelSpeed(-0.1), accelColor(0.0, -0.02, -0.03, -0.001),
                 gravityPow(0.2), gravityRad(Pi / 2.0),
                 blendState(s3d::BlendState::Additive)
             {}
             double       randPow;
             double       radianRange;
             double       accelSpeed;
-            double       accelSize;
             ColorF       accelColor;
             double       gravityPow;
             double       gravityRad;
             BlendState   blendState;
         };
 
+
+        double convRadian(double degree)
+        {
+            if (degree < 0.0) {
+                degree = fmod(degree, 360.0) + 360.0;
+                if (degree == 360.0) degree = 0.0;
+            }
+            else if (degree >= 360.0)
+                degree = fmod(degree, 360.0);
+
+            return degree * PiDivStraight;
+        }
+
+
+        double convRadianRange(double degree)
+        {
+            if (degree < 0.0) degree = 0.0;
+            if (degree > 360.0) degree = 360.0;
+
+            return degree * PiDivStraight;
+        }
+
+
+        // 無効な粒子を削除
+        template<typename T>
+        void cleanElements(T& elements)
+        {
+
+            auto dustIt = std::remove_if(elements.begin(), elements.end(),
+                [](Element &element) { return !element.enable; });
+
+            elements.erase(dustIt, elements.end());
+
+            Print << U"elements.size: " << elements.size();
+        }
+    };
+
+
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【基底クラス】円形のパーティクル
+    // 円系パーティクルの基礎となるクラス。他の円系パーティクルはこれを拡張（継承）したもの
+    //
+    class Circle : public Internally
+    {
+    protected:
+        // クラス内部で使用する構造体
+        //struct Element
+        //{
+        //    Element() :
+        //        pos(Vec2(0, 0)), size(50.0), radian(0.0), speed(5.0),
+        //        color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0), enable(true)
+        //    {}
+        //    Element(Vec2 _pos, double _size, double _radian, double _speed, ColorF _color) :
+        //        pos(_pos), size(_size), radian(_radian), speed(_speed), color(_color),
+        //        gravity(0.0), enable(true)
+        //    {}
+        //    Vec2   pos;
+        //    double size;
+        //    double radian;
+        //    double speed;
+        //    ColorF color;
+        //    double gravity;
+        //    bool   enable;
+        //};
+
+        //struct CircleElementProperty : public ElementProperty, public CircleElement
+        //{
+        //    CircleElementProperty() : accelSize(-0.01), accelColor(0.0, -0.02, -0.03, -0.001),
+        //        gravityPow(0.2), gravityRad(Pi / 2.0),
+        //        blendState(s3d::BlendState::Additive)
+        //    {}
+        //    double       randPow;
+        //    double       radianRange;
+        //    double       accelSpeed;
+        //    double       accelSize;
+        //    ColorF       accelColor;
+        //    double       gravityPow;
+        //    double       gravityRad;
+        //    BlendState   blendState;
+        //};
+
+        struct CircleElement : public Element
+        {
+            CircleElement() : size(5.0)
+            {}
+            CircleElement(Vec2 _pos, double _size, double _radian, double _speed, ColorF _color) :
+                Element(_pos, _radian, _speed, _color), size(_size)
+            {}
+            double size;
+        };
+
+
+        struct CircleProperty : public Property, public CircleElement
+        {
+            CircleProperty() : accelSize(-0.01)
+            {}
+            double  accelSize;
+        };
+
+
+
         // 【フィールド】
-        ElementProperty property;
-        std::vector<Element> elements;
+        CircleProperty property;
+        std::vector<CircleElement> elements;
 
 
 
@@ -81,28 +178,9 @@ namespace Particle2D
         Circle&  size(double size)  { property.size  = size;  return *this; }
         Circle& speed(double speed) { property.speed = speed; return *this; }
         Circle& color(Color  color) { property.color = color; return *this; }
-
-        Circle& angle(double angle)
-        {
-            if (angle < 0.0) {
-                angle = fmod(angle, 360.0) + 360.0;
-                if (angle == 360.0) angle = 0.0;
-            }
-            else if (angle >= 360.0)
-                angle = fmod(angle, 360.0);
-
-            property.radian = angle * PiDivStraight;
-            return *this;
-        }
-
-        Circle& angleRange(double angleRange)
-        {
-            if (angleRange < 0.0) angleRange = 0.0;
-            if (angleRange > 360.0) angleRange = 360.0;
-
-            property.radianRange = angleRange * PiDivStraight;
-            return *this;
-        }
+        //Circle& accelSize(double _)
+        Circle& angle(double degree) { property.radian = convRadian(degree); return *this; }
+        Circle& angleRange(double degree) { property.radianRange = convRadianRange(degree); return *this; }
 
 
         // 【メソッド】生成
@@ -119,12 +197,12 @@ namespace Particle2D
                 // 角度
                 fix = Random(property.radianRange) - property.radianRange / 2.0;
                 rad = fmod(property.radian + fix + TwoPi, TwoPi);
-
+                
                 // スピード
                 speed = property.speed + Random(-property.randPow, property.randPow);
 
                 // 要素を追加
-                elements.emplace_back(Element(property.pos, size, rad, speed, property.color));
+                elements.emplace_back(CircleElement(property.pos, size, rad, speed, property.color));
             }
         }
 
@@ -179,9 +257,7 @@ namespace Particle2D
             }
 
             // 無効な粒子を削除
-            auto dustIt = std::remove_if(elements.begin(), elements.end(),
-                [](Element &element) { return !element.enable; });
-            elements.erase(dustIt, elements.end());
+            cleanElements(elements);
 
             //Print << U"elements.size: " << elements.size();
         }
@@ -254,7 +330,7 @@ namespace Particle2D
     // scaleメソッドで 1.0～8.0 が指定可能。高いほど拡大されるが負荷を軽減できる。
     // ※この仕組みは、図形の描画が重く、ブレンディングも効かないため「点系」でのみ採用
     //
-    class Dot
+    class Dot : public Internally
     {
     protected:
         // クラス内部で使用する構造体
@@ -317,29 +393,8 @@ namespace Particle2D
         Dot&   pos(Vec2   pos)   { property.pos   = pos;   return *this; }
         Dot& speed(double speed) { property.speed = speed; return *this; }
         Dot& color(Color  color) { property.color = color; return *this; }
-
-        Dot& angle(double angle)
-        {
-            if (angle < 0.0) {
-                angle = fmod(angle, 360.0) + 360.0;
-                if (angle == 360.0) angle = 0.0;
-            }
-            else if (angle >= 360.0)
-                angle = fmod(angle, 360.0);
-
-            property.radian = angle * PiDivStraight;
-            return *this;
-        }
-
-        Dot& angleRange(double angleRange)
-        {
-            if (angleRange < 0.0) angleRange = 0.0;
-            if (angleRange > 360.0) angleRange = 360.0;
-
-            property.radianRange = angleRange * PiDivStraight;
-            return *this;
-        }
-
+        Dot& angle(double degree) { property.radian = convRadian(degree); return *this; }
+        Dot& angleRange(double degree) { property.radianRange = convRadianRange(degree); return *this; }
         Dot& smooth(bool val)
         {
             property.samplerState = val ? s3d::SamplerState::Default2D :
@@ -494,7 +549,7 @@ namespace Particle2D
                 // 求めた色をセット
                 property.img[pos].set(dst);
             }
-
+            
             // 動的テクスチャを更新
             property.tex.fill(property.img);
 

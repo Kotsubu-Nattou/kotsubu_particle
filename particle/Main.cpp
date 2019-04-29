@@ -13,8 +13,8 @@ void Main()
 
             particle.pos(Vec2(x, y)).speed(5);
             particle.angle(0).angleRange(360);
-            particle.color(ColorF(1.0, 0.85, 0.4, 0.5));
-            particle.create(50);
+            particle.color(ColorF(1.0, 0.85, 0.5, 0.7));
+            particle.create(100);
         }
         
         Circle(Window::Center(), 100).draw(Palette::Cyan);
