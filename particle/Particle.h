@@ -16,9 +16,15 @@ namespace
 
 namespace Particle2D
 {
-    class Internally
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【基底クラス】すべてのパーティクルの元となる、内部で使用するメンバなど。単独利用不可
+    //
+    class InternalWorks
     {
     protected:
+        InternalWorks()
+        {}
+
         struct Element
         {
             Element() :
@@ -88,7 +94,7 @@ namespace Particle2D
 
             elements.erase(dustIt, elements.end());
 
-            Print << U"elements.size: " << elements.size();
+            //Print << U"elements.size: " << elements.size();
         }
     };
 
@@ -97,48 +103,13 @@ namespace Particle2D
 
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // 【基底クラス】円形のパーティクル
-    // 円系パーティクルの基礎となるクラス。他の円系パーティクルはこれを拡張（継承）したもの
+    // 【メインクラス】円形のパーティクル
+    // 円系パーティクルの元となるクラス。他の円系パーティクルはこれを拡張（継承）したもの
     //
-    class Circle : public Internally
+    class Circle : public InternalWorks
     {
     protected:
         // クラス内部で使用する構造体
-        //struct Element
-        //{
-        //    Element() :
-        //        pos(Vec2(0, 0)), size(50.0), radian(0.0), speed(5.0),
-        //        color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0), enable(true)
-        //    {}
-        //    Element(Vec2 _pos, double _size, double _radian, double _speed, ColorF _color) :
-        //        pos(_pos), size(_size), radian(_radian), speed(_speed), color(_color),
-        //        gravity(0.0), enable(true)
-        //    {}
-        //    Vec2   pos;
-        //    double size;
-        //    double radian;
-        //    double speed;
-        //    ColorF color;
-        //    double gravity;
-        //    bool   enable;
-        //};
-
-        //struct CircleElementProperty : public ElementProperty, public CircleElement
-        //{
-        //    CircleElementProperty() : accelSize(-0.01), accelColor(0.0, -0.02, -0.03, -0.001),
-        //        gravityPow(0.2), gravityRad(Pi / 2.0),
-        //        blendState(s3d::BlendState::Additive)
-        //    {}
-        //    double       randPow;
-        //    double       radianRange;
-        //    double       accelSpeed;
-        //    double       accelSize;
-        //    ColorF       accelColor;
-        //    double       gravityPow;
-        //    double       gravityRad;
-        //    BlendState   blendState;
-        //};
-
         struct CircleElement : public Element
         {
             CircleElement() : size(5.0)
@@ -156,7 +127,6 @@ namespace Particle2D
             {}
             double  accelSize;
         };
-
 
 
         // 【フィールド】
@@ -258,8 +228,6 @@ namespace Particle2D
 
             // 無効な粒子を削除
             cleanElements(elements);
-
-            //Print << U"elements.size: " << elements.size();
         }
 
 
@@ -303,17 +271,34 @@ namespace Particle2D
     //
     class CircleSmoke : public Circle
     {
+    private:
+        // 【追加フィールド】
+        int layerQuantity;
+
     public:
+        // 【コンストラクタ】
+        CircleSmoke() : layerQuantity(5)
+        {}
+
+        // 【セッタ】
+        CircleSmoke& layer(int quantity)
+        { 
+            if (quantity < 1) quantity = 1;
+            if (quantity > 10) quantity = 10;
+            layerQuantity = quantity;
+            return *this; 
+        }
+
         // 【メソッド】ドロー（オーバーライド）
         void draw()
         {
-            double fix;
+            double ratio;
             s3d::RenderStateBlock2D tmp(property.blendState);
 
-            for (int i = 0; i < 5; ++i) {
-                fix = i * 0.2;
+            for (int i = 0; i < layerQuantity; ++i) {
+                ratio = i / static_cast<double>(layerQuantity);
                 for (auto &r : elements)
-                    s3d::Circle(r.pos, r.size - r.size * fix).draw(r.color);
+                    s3d::Circle(r.pos, r.size - r.size * ratio).draw(r.color);
             }
         }
     };
@@ -323,50 +308,21 @@ namespace Particle2D
 
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // 【基底クラス】点のパーティクル
-    // 点系パーティクルの基礎となるクラス。他の点系パーティクルはこれを拡張（継承）したもの。
+    // 【メインクラス】点のパーティクル
+    // 点系パーティクルの元となるクラス。他の点系パーティクルはこれを拡張（継承）したもの。
     // 最も多くのパーティクルを描画できる。ただし、このクラスはパーティクル数が
     // 「0」でも画面全体のイメージを複製＆描画するため、最低負荷は高め。
     // scaleメソッドで 1.0～8.0 が指定可能。高いほど拡大されるが負荷を軽減できる。
     // ※この仕組みは、図形の描画が重く、ブレンディングも効かないため「点系」でのみ採用
     //
-    class Dot : public Internally
+    class Dot : public InternalWorks
     {
     protected:
         // クラス内部で使用する構造体
-        struct Element
+        struct DotProperty : public Property, public Element
         {
-            Element() :
-                pos(Vec2(0, 0)), radian(0.0), speed(3.0),
-                color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0), enable(true)
+            DotProperty() : samplerState(s3d::SamplerState::ClampNearest)
             {}
-            Element(Vec2 _pos, double _radian, double _speed, ColorF _color) :
-                pos(_pos), radian(_radian), speed(_speed), color(_color), gravity(0.0), enable(true)
-            {}
-            Vec2   pos;
-            double radian;
-            double speed;
-            ColorF color;
-            double gravity;
-            bool   enable;
-        };
-
-
-        struct ElementProperty : public Element
-        {
-            ElementProperty() :
-                randPow(5.0), accelSpeed(-0.1), accelColor(0.0, -0.02, -0.03, -0.001),
-                radianRange(TwoPi), gravityPow(0.2), gravityRad(Pi / 2.0),
-                blendState(s3d::BlendState::Additive),
-                samplerState(s3d::SamplerState::ClampNearest)
-            {}
-            double         randPow;
-            double         accelSpeed;
-            ColorF         accelColor;
-            double         radianRange;
-            double         gravityPow;
-            double         gravityRad;
-            BlendState     blendState;
             double         scale;
             SamplerState   samplerState;
             DynamicTexture tex;
@@ -374,8 +330,9 @@ namespace Particle2D
             Image          blankImg;
         };
 
+
         // 【フィールド】
-        ElementProperty property;
+        DotProperty property;
         std::vector<Element> elements;
 
 
@@ -395,6 +352,7 @@ namespace Particle2D
         Dot& color(Color  color) { property.color = color; return *this; }
         Dot& angle(double degree) { property.radian = convRadian(degree); return *this; }
         Dot& angleRange(double degree) { property.radianRange = convRadianRange(degree); return *this; }
+        
         Dot& smooth(bool val)
         {
             property.samplerState = val ? s3d::SamplerState::Default2D :
@@ -485,11 +443,7 @@ namespace Particle2D
             }
 
             // 無効な粒子を削除
-            auto dustIt = std::remove_if(elements.begin(), elements.end(),
-                [](Element &element) { return !element.enable; });
-            elements.erase(dustIt, elements.end());
-
-            //Print << U"elements.size: " << elements.size();
+            cleanElements(elements);
         }
 
 
