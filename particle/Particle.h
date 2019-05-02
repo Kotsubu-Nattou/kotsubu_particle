@@ -13,16 +13,22 @@ namespace Particle2D
     class InternalWorks
     {
     protected:
+        // 各クラスで使用する定数
         static inline const double Pi = 3.141592653589793;
         static inline const double TwoPi = Pi * 2.0;            // Radianの最大値
         static inline const double PiDivStraight = Pi / 180.0;  // Degに掛けるとRad
         static inline const double StraightDivPi = 180.0 / Pi;  // Radに掛けるとDeg
-        static inline const double Vertical = TwoPi + Pi;
-        static inline const double Horizontal = TwoPi;
 
-        InternalWorks()
-        {}
+        struct ReflectionAxis  // 反射軸の定数。向きをラジアンで表す
+        {
+            static inline const double Horizontal = Pi * 0.0;  // 水平の軸
+            static inline const double LowerRight = Pi * 0.5;  // 右下に伸びる軸
+            static inline const double Vertical   = Pi * 1.0;  // 垂直の軸
+            static inline const double LowerLeft  = Pi * 1.5;  // 左下に伸びる軸
+        };
 
+
+        // 各クラスで使用する構造体
         struct Element
         {
             Vec2   pos;
@@ -66,6 +72,12 @@ namespace Particle2D
         };
 
 
+        // 【隠しコンストラクタ】
+        InternalWorks()
+        {}
+
+
+        // 【メソッド】
         double fixSize(double size)
         {
             if (size < 1.0)size = 1.0;
@@ -115,8 +127,11 @@ namespace Particle2D
         }
 
 
-        // 【メソッド】壁の反射（縦横兼用）
-        void reflection(double situationsRad, Element& elem, Vec2 oldPos)
+        // 【メソッド】粒子の反射
+        // ＜引数＞reflectionAxisRad --- 反射軸の「向き」をラジアンで指定
+        // 反射軸が「0 rad（  0°）」のとき、進入角が90°なら結果は270°、270°なら90°
+        // 反射軸が「π rad（180°）」のとき、進入角が 0°なら結果は180°、180°なら 0°
+        void reflection(double reflectionAxisRad, Element& elem, Vec2 oldPos)
         {
             Vec2 dist;
             double rad;
@@ -143,9 +158,9 @@ namespace Particle2D
             rad = atan2(dist.y, dist.x);
 
             // 角度を反射
-            elem.radian = fmod(situationsRad - rad, TwoPi);
+            elem.radian = fmod(reflectionAxisRad - rad, TwoPi);
 
-            // 速度を「移動距離 * 反射減衰」とする（直前までの引力成分も含まれる）
+            // 速度を「移動距離」とし、力を減衰させる。（直前までの引力成分も含まれる）
             elem.speed = sqrt(dist.x*dist.x + dist.y*dist.y) * ReflectionRatio;
 
             // 引力をリセット（上でelem.speedに引力成分は引き継がれている）
@@ -262,12 +277,12 @@ namespace Particle2D
         // 【メソッド】アップデート
         void update()
         {
-            int windowWidth  = Window::Width();
-            int windowHeight = Window::Height();
-            double gravitySin = sin(property.gravityRad);
-            double gravityCos = cos(property.gravityRad);
-            bool wallsEnable = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
-            Vec2 old;
+            int    windowWidth  = Window::Width();
+            int    windowHeight = Window::Height();
+            double gravitySin   = sin(property.gravityRad);
+            double gravityCos   = cos(property.gravityRad);
+            bool   wallsEnable  = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
+            Vec2   old;
 
             for (auto &r : elements) {
                 // 色の変化
@@ -299,10 +314,10 @@ namespace Particle2D
                 // 壁
                 r.stucking = false;
                 if (wallsEnable) {
-                    if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size)) reflection(Vertical,   r, old);
-                    if ((property.wallBottom) && (r.pos.y > windowHeight - r.size)) reflection(Horizontal, r, old);
-                    if ((property.wallLeft)   && (r.pos.x < r.size))                reflection(Vertical,   r, old);
-                    if ((property.wallTop)    && (r.pos.y < r.size))                reflection(Horizontal, r, old);
+                    if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size)) reflection(ReflectionAxis::Vertical,   r, old);
+                    if ((property.wallBottom) && (r.pos.y > windowHeight - r.size)) reflection(ReflectionAxis::Horizontal, r, old);
+                    if ((property.wallLeft)   && (r.pos.x < r.size))                reflection(ReflectionAxis::Vertical,   r, old);
+                    if ((property.wallTop)    && (r.pos.y < r.size))                reflection(ReflectionAxis::Horizontal, r, old);
                 }
 
                 // 画面外かどうか
@@ -508,12 +523,12 @@ namespace Particle2D
         // 【メソッド】アップデート
         void update()
         {
-            int imgWidth  = property.blankImg.width();
-            int imgHeight = property.blankImg.height();
-            double gravitySin = sin(property.gravityRad);
-            double gravityCos = cos(property.gravityRad);
-            bool wallsEnable = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
-            Vec2 old;
+            int    imgWidth    = property.blankImg.width();
+            int    imgHeight   = property.blankImg.height();
+            double gravitySin  = sin(property.gravityRad);
+            double gravityCos  = cos(property.gravityRad);
+            bool   wallsEnable = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
+            Vec2   old;
 
             for (auto &r : elements) {
                 // 色の変化
@@ -538,10 +553,10 @@ namespace Particle2D
                 // 壁
                 r.stucking = false;
                 if (wallsEnable) {
-                    if ((property.wallRight)  && (r.pos.x > imgWidth))  reflection(Vertical,   r, old);
-                    if ((property.wallBottom) && (r.pos.y > imgHeight)) reflection(Horizontal, r, old);
-                    if ((property.wallLeft)   && (r.pos.x < 0.0))       reflection(Vertical,   r, old);
-                    if ((property.wallTop)    && (r.pos.y < 0.0))       reflection(Horizontal, r, old);
+                    if ((property.wallRight)  && (r.pos.x > imgWidth))  reflection(ReflectionAxis::Vertical,   r, old);
+                    if ((property.wallBottom) && (r.pos.y > imgHeight)) reflection(ReflectionAxis::Horizontal, r, old);
+                    if ((property.wallLeft)   && (r.pos.x < 0.0))       reflection(ReflectionAxis::Vertical,   r, old);
+                    if ((property.wallTop)    && (r.pos.y < 0.0))       reflection(ReflectionAxis::Horizontal, r, old);
                 }
 
                 // 画面外かどうか（posはイメージ配列の添え字になるので、そのチェックも兼ねる）
@@ -624,6 +639,165 @@ namespace Particle2D
             // 動的テクスチャをドロー
             s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
             property.tex.scaled(property.scale).draw();
+        }
+    };
+
+
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【メインクラス】星のパーティクル
+    //
+    class Star : public InternalWorks
+    {
+    protected:
+        // クラス内部で使用する構造体
+        struct StarElement : public Element
+        {
+            double size;
+            StarElement() : size(5.0)
+            {}
+            StarElement(Vec2 _pos, double _size, double _radian, double _speed, ColorF _color) :
+                Element(_pos, _radian, _speed, _color), size(_size)
+            {}
+        };
+
+
+        struct StarProperty : public Property, public StarElement
+        {
+            double  accelSize;
+            StarProperty() : accelSize(-0.01)
+            {}
+        };
+
+
+        // 【フィールド】
+        StarProperty property;
+        std::vector<StarElement> elements;
+
+
+
+    public:
+        // 【コンストラクタ】
+        Star(size_t reserve = 3000)
+        {
+            elements.reserve(reserve);
+        }
+
+
+        // 【セッタ】各初期パラメータ。メソッドチェーン方式
+        Star& pos(         Vec2   pos)    { property.pos         = pos;                     return *this; }
+        Star& size(        double size)   { property.size        = fixSize(size);           return *this; }
+        Star& speed(       double speed)  { property.speed       = fixSpeed(speed);         return *this; }
+        Star& color(       Color  color)  { property.color       = color;                   return *this; }
+        Star& angle(       double degree) { property.radian      = convRadian(degree);      return *this; }
+        Star& angleRange(  double degree) { property.radianRange = convRadianRange(degree); return *this; }
+        Star& accelSize(   double size)   { property.accelSize   = size;                    return *this; }
+        Star& accelSpeed(  double speed)  { property.accelSpeed  = speed;                   return *this; }
+        Star& accelColor(  Color  color)  { property.accelColor  = color;                   return *this; }
+        Star& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);  return *this; }
+        Star& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
+        Star& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
+        Star& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
+        Star& walls(bool right, bool bottom, bool left, bool top) { property.wallRight = right; property.wallBottom = bottom; property.wallLeft = left; property.wallTop = top; return *this; }
+
+        // 【メソッド】生成
+        void create(int quantity)
+        {
+            double size, rad, randRad, speed;
+            double sizeRandRange = property.size * property.randPow / 30.0;
+            double radRangeFix   = property.radianRange / 2.0;
+
+            for (int i = 0; i < quantity; ++i) {
+                // サイズ
+                size = property.size + Random(-sizeRandRange, sizeRandRange);
+
+                // 角度
+                randRad = Random(property.radianRange) - radRangeFix;
+                rad     = fmod(property.radian + randRad + TwoPi, TwoPi);
+                
+                // スピード
+                speed = property.speed + Random(-property.randPow, property.randPow);
+
+                // 要素を追加
+                elements.emplace_back(StarElement(property.pos, size, rad, speed, property.color));
+            }
+        }
+
+
+
+        // 【メソッド】アップデート
+        void update()
+        {
+            int    windowWidth  = Window::Width();
+            int    windowHeight = Window::Height();
+            double gravitySin   = sin(property.gravityRad);
+            double gravityCos   = cos(property.gravityRad);
+            bool   wallsEnable  = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
+            Vec2   old;
+
+            for (auto &r : elements) {
+                // 色の変化
+                r.color += property.accelColor;  // ColorFを「+=」した場合、対象はRGBのみ
+                if (!r.stucking)
+                    r.color.a += property.accelColor.a;
+                if (r.color.a <= 0.0) {
+                    r.enable = false;
+                    continue;
+                }
+
+                // サイズの変化
+                r.size += property.accelSize;
+                if (r.size <= 0.0) {
+                    r.enable = false;
+                    continue;
+                }
+
+                // 移動
+                old = r.pos;
+                r.pos.x += cos(r.radian) * r.speed;
+                r.pos.y += sin(r.radian) * r.speed;
+
+                // 引力
+                r.gravity += property.gravityPow;
+                r.pos.x += gravityCos * r.gravity;
+                r.pos.y += gravitySin * r.gravity;
+
+                // 壁
+                r.stucking = false;
+                if (wallsEnable) {
+                    if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size)) reflection(ReflectionAxis::Vertical,   r, old);
+                    if ((property.wallBottom) && (r.pos.y > windowHeight - r.size)) reflection(ReflectionAxis::Horizontal, r, old);
+                    if ((property.wallLeft)   && (r.pos.x < r.size))                reflection(ReflectionAxis::Vertical,   r, old);
+                    if ((property.wallTop)    && (r.pos.y < r.size))                reflection(ReflectionAxis::Horizontal, r, old);
+                }
+
+                // 画面外かどうか
+                if ((r.pos.x <= -r.size) || (r.pos.x >= windowWidth  + r.size) ||
+                    (r.pos.y <= -r.size) || (r.pos.y >= windowHeight + r.size)) {
+                    r.enable = false;
+                    continue;
+                }
+
+                // スピードの変化
+                r.speed += property.accelSpeed;
+                if (r.speed < 0.0) r.speed = 0.0;
+            }
+
+            // 無効な粒子を削除
+            cleanElements(elements);
+        }
+
+
+
+        // 【メソッド】ドロー
+        void draw()
+        {
+            s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
+
+            for (auto &r : elements)
+                Shape2D::Star(r.size, r.pos, Pi*0.5).draw(r.color);
         }
     };
 }
