@@ -63,11 +63,11 @@ namespace Particle2D
             bool         wallLeft;
             bool         wallTop;
             Property() :
-                randPow(5.0), radianRange(TwoPi),
+                randPow(3.0), radianRange(TwoPi),
                 accelSpeed(-0.1), accelColor(0.0, -0.02, -0.03, -0.001),
                 gravityPow(0.2), gravityRad(Pi / 2.0),
                 blendState(s3d::BlendState::Additive),
-                wallRight(true), wallBottom(true), wallLeft(true), wallTop(true)
+                wallRight(false), wallBottom(false), wallLeft(false), wallTop(false)
             {}
         };
 
@@ -253,8 +253,9 @@ namespace Particle2D
         void create(int quantity)
         {
             double size, rad, randRad, speed;
-            double sizeRandRange = property.size * property.randPow / 30.0;
-            double radRangeFix   = property.radianRange / 2.0;
+            double sizeRandRange    = property.size * property.randPow * 0.03;
+            double radRangeFix      = property.radianRange * 0.5;
+            double speedRandLower   = -property.randPow * 0.5;
 
             for (int i = 0; i < quantity; ++i) {
                 // サイズ
@@ -265,7 +266,7 @@ namespace Particle2D
                 rad     = fmod(property.radian + randRad + TwoPi, TwoPi);
                 
                 // スピード
-                speed = property.speed + Random(-property.randPow, property.randPow);
+                speed = property.speed + Random(speedRandLower, property.randPow);
 
                 // 要素を追加
                 elements.emplace_back(CircleElement(property.pos, size, rad, speed, property.color));
@@ -379,19 +380,19 @@ namespace Particle2D
     {
     private:
         // 【追加フィールド】
-        int layerQuantity;
+        int layerQty;
 
     public:
         // 【コンストラクタ】
-        CircleSmoke() : layerQuantity(5)
+        CircleSmoke() : layerQty(5)
         {}
 
         // 【セッタ】初期パラメータ。メソッドチェーン方式
-        CircleSmoke& layer(int quantity)
+        CircleSmoke& layerQuantity(int qty)
         { 
-            if (quantity < 1) quantity = 1;
-            if (quantity > 10) quantity = 10;
-            layerQuantity = quantity;
+            if (qty < 1) qty = 1;
+            if (qty > 10) qty = 10;
+            layerQty = qty;
             return *this;
         }
 
@@ -401,8 +402,8 @@ namespace Particle2D
             double ratio;
             s3d::RenderStateBlock2D tmp(property.blendState);
 
-            for (int i = 0; i < layerQuantity; ++i) {
-                ratio = i / static_cast<double>(layerQuantity);
+            for (int i = 0; i < layerQty; ++i) {
+                ratio = i / static_cast<double>(layerQty);
                 for (auto &r : elements)
                     s3d::Circle(r.pos, r.size - r.size * ratio).draw(r.color);
             }
@@ -502,7 +503,8 @@ namespace Particle2D
         void create(int quantity)
         {
             double rad, randRad, speed;
-            double radRangeFix = property.radianRange / 2.0;
+            double radRangeFix    = property.radianRange * 0.5;
+            double speedRandLower = -property.randPow * 0.5;
             Vec2 pos = property.pos / property.scale;
 
             for (int i = 0; i < quantity; ++i) {
@@ -511,7 +513,7 @@ namespace Particle2D
                 rad     = fmod(property.radian + randRad + TwoPi, TwoPi);
 
                 // スピード
-                speed = property.speed + Random(-property.randPow, property.randPow);
+                speed = property.speed + Random(speedRandLower, property.randPow);
 
                 // 要素を追加
                 elements.emplace_back(Element(pos, rad, speed, property.color));
@@ -648,6 +650,7 @@ namespace Particle2D
 
     /////////////////////////////////////////////////////////////////////////////////////
     // 【メインクラス】星のパーティクル
+    // n角形とテクスチャパーティクルの元となるクラス。n角形とテクスチャパーティクルはこれを拡張（継承）したもの。
     //
     class Star : public InternalWorks
     {
@@ -656,31 +659,37 @@ namespace Particle2D
         struct StarElement : public Element
         {
             double size;
-            StarElement() : size(5.0)
+            double rotateRad;
+            double rotateSpeed;
+            StarElement() :
+                size(10.0), rotateSpeed(0.0)
             {}
-            StarElement(Vec2 _pos, double _size, double _radian, double _speed, ColorF _color) :
-                Element(_pos, _radian, _speed, _color), size(_size)
+            StarElement(Vec2 _pos, double _size, double _radian, double _speed, ColorF _color, double _rotateRad, double _rotateSpeed) :
+                Element(_pos, _radian, _speed, _color), size(_size), rotateRad(_rotateRad), rotateSpeed(_rotateSpeed)
             {}
         };
 
 
         struct StarProperty : public Property, public StarElement
         {
-            double  accelSize;
-            StarProperty() : accelSize(-0.01)
-            {}
+            double accelSize;
+            StarProperty() : accelSize(1.3)
+            {
+                gravityPow = 0.0;
+            }
         };
 
 
         // 【フィールド】
         StarProperty property;
         std::vector<StarElement> elements;
+        int windowBorderFix;
 
 
 
     public:
         // 【コンストラクタ】
-        Star(size_t reserve = 3000)
+        Star(size_t reserve = 3000) : windowBorderFix(1)
         {
             elements.reserve(reserve);
         }
@@ -699,15 +708,19 @@ namespace Particle2D
         Star& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);  return *this; }
         Star& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
         Star& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
+        Star& rotate(      double speed)  { property.rotateSpeed = speed;                   return *this; }
         Star& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
         Star& walls(bool right, bool bottom, bool left, bool top) { property.wallRight = right; property.wallBottom = bottom; property.wallLeft = left; property.wallTop = top; return *this; }
+
 
         // 【メソッド】生成
         void create(int quantity)
         {
-            double size, rad, randRad, speed;
-            double sizeRandRange = property.size * property.randPow / 30.0;
-            double radRangeFix   = property.radianRange / 2.0;
+            double size, rad, randRad, speed, rotateSpeed;
+            double sizeRandRange    = property.size * property.randPow * 0.03;
+            double radRangeFix      = property.radianRange * 0.5;
+            double speedRandLower   = -property.randPow * 0.5;
+            double rotateSpeedRange = property.randPow * 0.002;
 
             for (int i = 0; i < quantity; ++i) {
                 // サイズ
@@ -718,16 +731,24 @@ namespace Particle2D
                 rad     = fmod(property.radian + randRad + TwoPi, TwoPi);
                 
                 // スピード
-                speed = property.speed + Random(-property.randPow, property.randPow);
+                speed = property.speed + Random(speedRandLower, property.randPow);
+
+                // 回転
+                rotateSpeed = property.rotateSpeed + Random(-rotateSpeedRange, rotateSpeedRange);
 
                 // 要素を追加
-                elements.emplace_back(StarElement(property.pos, size, rad, speed, property.color));
+                elements.emplace_back(StarElement(property.pos, size, rad, speed, property.color, Random(TwoPi), rotateSpeed));
             }
         }
 
 
 
         // 【メソッド】アップデート
+        // 注意！ CircleやStarのサイズ指定では「半径 * 2」になるが、Rectのサイズ指定では
+        //「左上を基点とした縦横の長さ」なので、基点が違う上、見かけの大きさは半分になる。
+        // よって、壁判定の左と上、および画面端判定の右と下の判定に差異がある。
+        // 解決策として、各クラス別でwindowBorderFixに0か1を設定し、OnOffしたい値に
+        // 掛けることによって調整可能とした。ただし、明らかに不自然になる箇所のみの対応に止めた。
         void update()
         {
             int    windowWidth  = Window::Width();
@@ -767,10 +788,10 @@ namespace Particle2D
                 // 壁
                 r.stucking = false;
                 if (wallsEnable) {
-                    if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size)) reflection(ReflectionAxis::Vertical,   r, old);
-                    if ((property.wallBottom) && (r.pos.y > windowHeight - r.size)) reflection(ReflectionAxis::Horizontal, r, old);
-                    if ((property.wallLeft)   && (r.pos.x < r.size))                reflection(ReflectionAxis::Vertical,   r, old);
-                    if ((property.wallTop)    && (r.pos.y < r.size))                reflection(ReflectionAxis::Horizontal, r, old);
+                    if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size))    reflection(ReflectionAxis::Vertical,   r, old);
+                    if ((property.wallBottom) && (r.pos.y > windowHeight - r.size))    reflection(ReflectionAxis::Horizontal, r, old);
+                    if ((property.wallLeft)   && (r.pos.x < r.size * windowBorderFix)) reflection(ReflectionAxis::Vertical,   r, old);
+                    if ((property.wallTop)    && (r.pos.y < r.size * windowBorderFix)) reflection(ReflectionAxis::Horizontal, r, old);
                 }
 
                 // 画面外かどうか
@@ -783,6 +804,11 @@ namespace Particle2D
                 // スピードの変化
                 r.speed += property.accelSpeed;
                 if (r.speed < 0.0) r.speed = 0.0;
+
+                // 回転
+                r.rotateRad += r.rotateSpeed;
+                if ((r.rotateRad < 0.0) || (r.rotateRad >= TwoPi))
+                    r.rotateRad = fmod(r.rotateRad, TwoPi);
             }
 
             // 無効な粒子を削除
@@ -797,7 +823,30 @@ namespace Particle2D
             s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
 
             for (auto &r : elements)
-                Shape2D::Star(r.size, r.pos, Pi*0.5).draw(r.color);
+                Shape2D::Star(r.size, r.pos, r.rotateRad).draw(r.color);
+        }
+    };
+
+
+
+
+
+    class Rect : public Star
+    {
+    public:
+        // 【コンストラクタ】
+        Rect()
+        {
+            windowBorderFix = 0;
+        }
+
+        // 【メソッド】ドロー（オーバーライド）
+        void draw()
+        {
+            s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
+
+            for (auto &r : elements)
+                s3d::Rect(r.pos.x, r.pos.y, r.size).rotated(r.rotateRad).draw(r.color);
         }
     };
 }
