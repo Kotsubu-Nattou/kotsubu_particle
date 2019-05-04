@@ -4,7 +4,7 @@
 
 void Main()
 {
-    Particle2D::Star particle;
+    Particle2D::Rect particle;
 
     while (System::Update()) {
         if (MouseL.pressed()) {
@@ -16,6 +16,7 @@ void Main()
             particle.color(ColorF(1.0, 0.85, 0.5, 0.8));
             //particle.accelColor(ColorF(0.0, -0.02, -0.03, 0.05));
             //particle.accelSize(0.1);
+            //particle.walls(true, true, true, true);
             particle.size(50);
             particle.rotate(0.0);
             particle.create(10);

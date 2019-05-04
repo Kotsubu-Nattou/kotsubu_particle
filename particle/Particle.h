@@ -683,13 +683,13 @@ namespace Particle2D
         // 【フィールド】
         StarProperty property;
         std::vector<StarElement> elements;
-        int windowBorderFix;
+        double frameOutMarginRatio;  // Rectなどで傾いていても途切れないように余白調整する値
 
 
 
     public:
         // 【コンストラクタ】
-        Star(size_t reserve = 3000) : windowBorderFix(1)
+        Star(size_t reserve = 3000) : frameOutMarginRatio(1.0)
         {
             elements.reserve(reserve);
         }
@@ -744,11 +744,6 @@ namespace Particle2D
 
 
         // 【メソッド】アップデート
-        // 注意！ CircleやStarのサイズ指定では「半径 * 2」になるが、Rectのサイズ指定では
-        //「左上を基点とした縦横の長さ」なので、基点が違う上、見かけの大きさは半分になる。
-        // よって、壁判定の左と上、および画面端判定の右と下の判定に差異がある。
-        // 解決策として、各クラス別でwindowBorderFixに0か1を設定し、OnOffしたい値に
-        // 掛けることによって調整可能とした。ただし、明らかに不自然になる箇所のみの対応に止めた。
         void update()
         {
             int    windowWidth  = Window::Width();
@@ -757,6 +752,7 @@ namespace Particle2D
             double gravityCos   = cos(property.gravityRad);
             bool   wallsEnable  = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
             Vec2   old;
+            int    margin;
 
             for (auto &r : elements) {
                 // 色の変化
@@ -788,15 +784,16 @@ namespace Particle2D
                 // 壁
                 r.stucking = false;
                 if (wallsEnable) {
-                    if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size))    reflection(ReflectionAxis::Vertical,   r, old);
-                    if ((property.wallBottom) && (r.pos.y > windowHeight - r.size))    reflection(ReflectionAxis::Horizontal, r, old);
-                    if ((property.wallLeft)   && (r.pos.x < r.size * windowBorderFix)) reflection(ReflectionAxis::Vertical,   r, old);
-                    if ((property.wallTop)    && (r.pos.y < r.size * windowBorderFix)) reflection(ReflectionAxis::Horizontal, r, old);
+                    if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size)) reflection(ReflectionAxis::Vertical,   r, old);
+                    if ((property.wallBottom) && (r.pos.y > windowHeight - r.size)) reflection(ReflectionAxis::Horizontal, r, old);
+                    if ((property.wallLeft)   && (r.pos.x < r.size))                reflection(ReflectionAxis::Vertical,   r, old);
+                    if ((property.wallTop)    && (r.pos.y < r.size))                reflection(ReflectionAxis::Horizontal, r, old);
                 }
 
                 // 画面外かどうか
-                if ((r.pos.x <= -r.size) || (r.pos.x >= windowWidth  + r.size) ||
-                    (r.pos.y <= -r.size) || (r.pos.y >= windowHeight + r.size)) {
+                margin = r.size * frameOutMarginRatio;  // Rectなどで傾いていても途切れないように余白を調整
+                if ((r.pos.x <= -margin) || (r.pos.x >= windowWidth  + margin) ||
+                    (r.pos.y <= -margin) || (r.pos.y >= windowHeight + margin)) {
                     r.enable = false;
                     continue;
                 }
@@ -831,22 +828,31 @@ namespace Particle2D
 
 
 
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【Starを継承】正方形のパーティクル
+    // n角形とテクスチャパーティクルの元となるクラス。n角形とテクスチャパーティクルはこれを拡張（継承）したもの。
+    //
     class Rect : public Star
     {
     public:
         // 【コンストラクタ】
         Rect()
         {
-            windowBorderFix = 0;
+            frameOutMarginRatio = 1.2;  // Rectが傾いていても途切れないように余白調整する値
         }
 
+
         // 【メソッド】ドロー（オーバーライド）
+        // s3dにおけるCircleやStarのサイズは「半径 * 2」であるが、Rectのサイズは
+        //「左上を基点とした縦横の長さ」なので、基点が違う上、見かけの大きさは半分となる。
+        // これをCircleなどと共通にするため「描画位置 = pos - size」「描画サイズ = size * 2」とする。
+        // ただし、Rectが傾いていると、誤差でフレームアウト時に途切れてしまう
         void draw()
         {
             s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
 
             for (auto &r : elements)
-                s3d::Rect(r.pos.x, r.pos.y, r.size).rotated(r.rotateRad).draw(r.color);
+                s3d::Rect(r.pos.x - r.size, r.pos.y - r.size, r.size * 2.0).rotated(r.rotateRad).draw(r.color);
         }
     };
 }
