@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #include <vector>
 #include <algorithm>
 #include <cmath>
@@ -8,27 +8,30 @@
 namespace Particle2D
 {
     /////////////////////////////////////////////////////////////////////////////////////
-    // yŠî’êƒNƒ‰ƒXz‚·‚×‚Ä‚Ìƒp[ƒeƒBƒNƒ‹‚ÌŒ³‚Æ‚È‚éA“à•”‚Åg—p‚·‚éƒƒ“ƒo‚È‚ÇB’P“Æ—˜—p•s‰Â
+    // ã€åŸºåº•ã‚¯ãƒ©ã‚¹ã€‘ã™ã¹ã¦ã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ã®å…ƒã¨ãªã‚‹ã€å†…éƒ¨ã§ä½¿ç”¨ã™ã‚‹ãƒ¡ãƒ³ãƒãªã©ã€‚å˜ç‹¬åˆ©ç”¨ä¸å¯
     //
     class InternalWorks
     {
     protected:
-        // ŠeƒNƒ‰ƒX‚Åg—p‚·‚é’è”
+        // å„ã‚¯ãƒ©ã‚¹ã§ä½¿ç”¨ã™ã‚‹å®šæ•°
         static inline const double Pi = 3.141592653589793;
-        static inline const double TwoPi = Pi * 2.0;            // Radian‚ÌÅ‘å’l
-        static inline const double PiDivStraight = Pi / 180.0;  // Deg‚ÉŠ|‚¯‚é‚ÆRad
-        static inline const double StraightDivPi = 180.0 / Pi;  // Rad‚ÉŠ|‚¯‚é‚ÆDeg
+        static inline const double TwoPi = Pi * 2.0;            // Radianã®æœ€å¤§å€¤
+        static inline const double PiDivStraight = Pi / 180.0;  // Degã«æ›ã‘ã‚‹ã¨Rad
+        static inline const double StraightDivPi = 180.0 / Pi;  // Radã«æ›ã‘ã‚‹ã¨Deg
+		static inline const double RootTwo = 1.414213562373095; // æ–œè¾ºãŒ45Â°ã®ç›´è§’ä¸‰è§’å½¢ã«ãŠã‘ã‚‹ã€æ–œè¾ºã®æ¯”ï¼ˆä»–ã®è¾ºã¯å…±ã«1ï¼‰
+		static inline const double One  = 1.0;                  // 1.0
+		static inline const double Half = 0.5;                  // 0.5
 
-        struct ReflectionAxis  // ”½Ë²‚Ì’è”BŒü‚«‚ğƒ‰ƒWƒAƒ“‚Å•\‚·
+        struct ReflectionAxis  // åå°„è»¸ã®å®šæ•°ã€‚å‘ãã‚’ãƒ©ã‚¸ã‚¢ãƒ³ã§è¡¨ã™
         {
-            static inline const double Horizontal = Pi * 0.0;  // …•½‚Ì²
-            static inline const double LowerRight = Pi * 0.5;  // ‰E‰º‚ÉL‚Ñ‚é²
-            static inline const double Vertical   = Pi * 1.0;  // ‚’¼‚Ì²
-            static inline const double LowerLeft  = Pi * 1.5;  // ¶‰º‚ÉL‚Ñ‚é²
+            static inline const double Horizontal = Pi * 0.0;  // å³ã«ä¼¸ã³ã‚‹è»¸ï¼ˆæ°´å¹³ï¼‰
+            static inline const double LowerRight = Pi * 0.5;  // å³ä¸‹ã«ä¼¸ã³ã‚‹è»¸
+            static inline const double Vertical   = Pi * 1.0;  // ä¸‹ã«ä¼¸ã³ã‚‹è»¸ï¼ˆå‚ç›´ï¼‰
+            static inline const double LowerLeft  = Pi * 1.5;  // å·¦ä¸‹ã«ä¼¸ã³ã‚‹è»¸
         };
 
 
-        // ŠeƒNƒ‰ƒX‚Åg—p‚·‚é\‘¢‘Ì
+        // å„ã‚¯ãƒ©ã‚¹ã§ä½¿ç”¨ã™ã‚‹æ§‹é€ ä½“
         struct Element
         {
             Vec2   pos;
@@ -36,15 +39,16 @@ namespace Particle2D
             double speed;
             ColorF color;
             double gravity;
-            bool   stucking;
+            bool   bounceBack;
             bool   enable;
             Element() :
                 pos(Vec2(0, 0)), radian(0.0), speed(5.0),
-                color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0), enable(true)
+                color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0),
+				bounceBack(false), enable(true)
             {}
             Element(Vec2 _pos, double _radian, double _speed, ColorF _color) :
                 pos(_pos), radian(_radian), speed(_speed), color(_color),
-                gravity(0.0), stucking(false), enable(true)
+                gravity(0.0), bounceBack(false), enable(true)
             {}
         };
 
@@ -72,12 +76,12 @@ namespace Particle2D
         };
 
 
-        // y‰B‚µƒRƒ“ƒXƒgƒ‰ƒNƒ^z
+        // ã€éš ã—ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã€‘
         InternalWorks()
         {}
 
 
-        // yƒƒ\ƒbƒhz
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘
         double fixSize(double size)
         {
             if (size < 1.0)size = 1.0;
@@ -127,10 +131,10 @@ namespace Particle2D
         }
 
 
-        // yƒƒ\ƒbƒhz—±q‚Ì”½Ë
-        // ƒˆø”„reflectionAxisRad --- ”½Ë²‚ÌuŒü‚«v‚ğƒ‰ƒWƒAƒ“‚Åw’è
-        // ”½Ë²‚ªu0 radi  0‹jv‚Ì‚Æ‚«Ai“üŠp‚ª90‹‚È‚çŒ‹‰Ê‚Í270‹A270‹‚È‚ç90‹
-        // ”½Ë²‚ªuƒÎ radi180‹jv‚Ì‚Æ‚«Ai“üŠp‚ª 0‹‚È‚çŒ‹‰Ê‚Í180‹A180‹‚È‚ç 0‹
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ç²’å­ã®åå°„
+        // ï¼œå¼•æ•°ï¼reflectionAxisRad --- åå°„è»¸ã®ã€Œå‘ãã€ã‚’ãƒ©ã‚¸ã‚¢ãƒ³ã§æŒ‡å®š
+        // åå°„è»¸ãŒã€Œ0 radï¼ˆ  0Â°ï¼‰ã€ã®ã¨ãã€é€²å…¥è§’ãŒ90Â°ãªã‚‰çµæœã¯270Â°ã€270Â°ãªã‚‰90Â°
+        // åå°„è»¸ãŒã€ŒÏ€ radï¼ˆ180Â°ï¼‰ã€ã®ã¨ãã€é€²å…¥è§’ãŒ 0Â°ãªã‚‰çµæœã¯180Â°ã€180Â°ãªã‚‰ 0Â°
         void reflection(double reflectionAxisRad, Element& elem, Vec2 oldPos)
         {
             Vec2 dist;
@@ -140,47 +144,47 @@ namespace Particle2D
             static const double ReflectionRatio = 0.7;
             static const double TurnbackRatio   = 0.3;
 
-            // ƒAƒ‹ƒtƒ@‚ğŒ¸Š
+            // ã‚¢ãƒ«ãƒ•ã‚¡ã‚’æ¸›è¡°
             elem.color.a *= AlphaFadeRatio;
             if (elem.color.a < AlphaFadeLimit) {
                 elem.enable = false;
                 return;
             }
 
-            // 1ƒtƒŒ[ƒ€‘O‚©‚ç‚ÌX‚ÆY‚ÌˆÚ“®—ÊiƒxƒNƒgƒ‹OldPosj
+            // 1ãƒ•ãƒ¬ãƒ¼ãƒ å‰ã‹ã‚‰ã®Xã¨Yã®ç§»å‹•é‡ï¼ˆãƒ™ã‚¯ãƒˆãƒ«OldPosï¼‰
             dist = elem.pos - oldPos;
 
-            // ƒxƒNƒgƒ‹OldPos‚ÌŠp“x‚ğ‹‚ß‚é
-            // ‚±‚ÌƒvƒƒOƒ‰ƒ€‚ÌˆÚ“®ˆ—‚ÍAelem.radian‚ÆgravityRad‚Ì
-            // u2Œn“v‚ğ‡Z‚µ‚ÄAÀÛ‚ÌuŒ©‚½–Ú‚Ì•ûŒüv‚Æ‚È‚éB
-            // ‚æ‚Á‚ÄAuŒ©‚½–Ú‚Ì•ûŒüv‚ğ”½Ë‚³‚¹‚é‚½‚ß‚É‚ÍA1Œn“‚¾‚¯‚ğ”½Ë
-            // ‚µ‚Ä‚àˆÓ–¡‚Í‚È‚­AuÀÛ‚ÉˆÚ“®‚µ‚½—ÊA‚¨‚æ‚ÑŠp“xv‚ğŒ³‚ÉZo‚·‚éB
+            // ãƒ™ã‚¯ãƒˆãƒ«OldPosã®è§’åº¦ã‚’æ±‚ã‚ã‚‹
+            // ã“ã®ãƒ—ãƒ­ã‚°ãƒ©ãƒ ã®ç§»å‹•å‡¦ç†ã¯ã€elem.radianã¨gravityRadã®
+            // ã€Œ2ç³»çµ±ã€ã‚’åˆç®—ã—ã¦ã€å®Ÿéš›ã®ã€Œè¦‹ãŸç›®ã®æ–¹å‘ã€ã¨ãªã‚‹ã€‚
+            // ã‚ˆã£ã¦ã€ã€Œè¦‹ãŸç›®ã®æ–¹å‘ã€ã‚’åå°„ã•ã›ã‚‹ãŸã‚ã«ã¯ã€1ç³»çµ±ã ã‘ã‚’åå°„
+            // ã—ã¦ã‚‚æ„å‘³ã¯ãªãã€ã€Œå®Ÿéš›ã«ç§»å‹•ã—ãŸé‡ã€ãŠã‚ˆã³è§’åº¦ã€ã‚’å…ƒã«ç®—å‡ºã™ã‚‹ã€‚
             rad = atan2(dist.y, dist.x);
 
-            // Šp“x‚ğ”½Ë
+            // è§’åº¦ã‚’åå°„
             elem.radian = fmod(reflectionAxisRad - rad, TwoPi);
 
-            // ‘¬“x‚ğuˆÚ“®‹——£v‚Æ‚µA—Í‚ğŒ¸Š‚³‚¹‚éBi’¼‘O‚Ü‚Å‚Ìˆø—Í¬•ª‚àŠÜ‚Ü‚ê‚éj
+            // é€Ÿåº¦ã‚’ã€Œç§»å‹•è·é›¢ã€ã¨ã—ã€åŠ›ã‚’æ¸›è¡°ã•ã›ã‚‹ã€‚ï¼ˆç›´å‰ã¾ã§ã®å¼•åŠ›æˆåˆ†ã‚‚å«ã¾ã‚Œã‚‹ï¼‰
             elem.speed = sqrt(dist.x*dist.x + dist.y*dist.y) * ReflectionRatio;
 
-            // ˆø—Í‚ğƒŠƒZƒbƒgiã‚Åelem.speed‚Éˆø—Í¬•ª‚Íˆø‚«Œp‚ª‚ê‚Ä‚¢‚éj
+            // å¼•åŠ›ã‚’ãƒªã‚»ãƒƒãƒˆï¼ˆä¸Šã§elem.speedã«å¼•åŠ›æˆåˆ†ã¯å¼•ãç¶™ãŒã‚Œã¦ã„ã‚‹ï¼‰
             elem.gravity = 0.0;
 
-            // •Ç‚Éö‚è‚ñ‚¾ˆÊ’u‚ğAuold‚©‚ç‚ÌŠ„‡v•ª‚¾‚¯–ß‚·
+            // å£ã«æ½œã‚Šè¾¼ã‚“ã ä½ç½®ã‚’ã€ã€Œoldã‹ã‚‰ã®å‰²åˆã€åˆ†ã ã‘æˆ»ã™
             elem.pos = oldPos + dist * TurnbackRatio;
 
-            // u”½Ë‚µ‚½vƒtƒ‰ƒO
-            elem.stucking = true;
+            // ã€Œåå°„ã—ãŸã€ãƒ•ãƒ©ã‚°
+            elem.bounceBack = true;
         }
 
 
-        // yƒƒ\ƒbƒhz–³Œø‚È—±q‚ğíœ
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ç„¡åŠ¹ãªç²’å­ã‚’å‰Šé™¤
         template<typename T>
         void cleanElements(T& elements)
         {
 
             auto dustIt = std::remove_if(elements.begin(), elements.end(),
-                [](Element &element) { return !element.enable; });
+                [](Element& element) { return !element.enable; });
 
             elements.erase(dustIt, elements.end());
 
@@ -193,17 +197,17 @@ namespace Particle2D
 
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // yƒƒCƒ“ƒNƒ‰ƒXz‰~Œ`‚Ìƒp[ƒeƒBƒNƒ‹
-    // ‰~Œnƒp[ƒeƒBƒNƒ‹‚ÌŒ³‚Æ‚È‚éƒNƒ‰ƒXB‘¼‚Ì‰~Œnƒp[ƒeƒBƒNƒ‹‚Í‚±‚ê‚ğŠg’£iŒp³j‚µ‚½‚à‚Ì
+    // ã€ãƒ¡ã‚¤ãƒ³ã‚¯ãƒ©ã‚¹ã€‘å††å½¢ã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«
+    // å††ç³»ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ã®å…ƒã¨ãªã‚‹ã‚¯ãƒ©ã‚¹ã€‚ä»–ã®å††ç³»ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ã¯ã“ã‚Œã‚’æ‹¡å¼µï¼ˆç¶™æ‰¿ï¼‰ã—ãŸã‚‚ã®
     //
     class Circle : public InternalWorks
     {
     protected:
-        // ƒNƒ‰ƒX“à•”‚Åg—p‚·‚é\‘¢‘Ì
+        // ã‚¯ãƒ©ã‚¹å†…éƒ¨ã§ä½¿ç”¨ã™ã‚‹æ§‹é€ ä½“
         struct CircleElement : public Element
         {
             double size;
-            CircleElement() : size(5.0)
+            CircleElement() : size(20.0)
             {}
             CircleElement(Vec2 _pos, double _size, double _radian, double _speed, ColorF _color) :
                 Element(_pos, _radian, _speed, _color), size(_size)
@@ -219,21 +223,21 @@ namespace Particle2D
         };
 
 
-        // yƒtƒB[ƒ‹ƒhz
+        // ã€ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã€‘
         CircleProperty property;
         std::vector<CircleElement> elements;
 
 
 
     public:
-        // yƒRƒ“ƒXƒgƒ‰ƒNƒ^z
+        // ã€ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã€‘
         Circle(size_t reserve = 3000)
         {
             elements.reserve(reserve);
         }
 
 
-        // yƒZƒbƒ^zŠe‰Šúƒpƒ‰ƒ[ƒ^Bƒƒ\ƒbƒhƒ`ƒF[ƒ“•û®
+        // ã€ã‚»ãƒƒã‚¿ã€‘å„åˆæœŸãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã€‚ãƒ¡ã‚½ãƒƒãƒ‰ãƒã‚§ãƒ¼ãƒ³æ–¹å¼
         Circle& pos(         Vec2   pos)    { property.pos         = pos;                     return *this; }
         Circle& size(        double size)   { property.size        = fixSize(size);           return *this; }
         Circle& speed(       double speed)  { property.speed       = fixSpeed(speed);         return *this; }
@@ -249,33 +253,33 @@ namespace Particle2D
         Circle& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
         Circle& walls(bool right, bool bottom, bool left, bool top) { property.wallRight = right; property.wallBottom = bottom; property.wallLeft = left; property.wallTop = top; return *this; }
 
-        // yƒƒ\ƒbƒhz¶¬
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ç”Ÿæˆ
         void create(int quantity)
         {
             double size, rad, randRad, speed;
             double sizeRandRange    = property.size * property.randPow * 0.03;
-            double radRangeFix      = property.radianRange * 0.5;
-            double speedRandLower   = -property.randPow * 0.5;
+            double radRangeFix      = property.radianRange * Half;
+            double speedRandLower   = -property.randPow * Half;
 
             for (int i = 0; i < quantity; ++i) {
-                // ƒTƒCƒY
+                // ã‚µã‚¤ã‚º
                 size = property.size + Random(-sizeRandRange, sizeRandRange);
 
-                // Šp“x
+                // è§’åº¦
                 randRad = Random(property.radianRange) - radRangeFix;
                 rad     = fmod(property.radian + randRad + TwoPi, TwoPi);
                 
-                // ƒXƒs[ƒh
+                // ã‚¹ãƒ”ãƒ¼ãƒ‰
                 speed = property.speed + Random(speedRandLower, property.randPow);
 
-                // —v‘f‚ğ’Ç‰Á
+                // è¦ç´ ã‚’è¿½åŠ 
                 elements.emplace_back(CircleElement(property.pos, size, rad, speed, property.color));
             }
         }
 
 
 
-        // yƒƒ\ƒbƒhzƒAƒbƒvƒf[ƒg
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ã‚¢ãƒƒãƒ—ãƒ‡ãƒ¼ãƒˆ
         void update()
         {
             int    windowWidth  = Window::Width();
@@ -286,34 +290,34 @@ namespace Particle2D
             Vec2   old;
 
             for (auto &r : elements) {
-                // F‚Ì•Ï‰»
-                r.color += property.accelColor;  // ColorF‚ğu+=v‚µ‚½ê‡A‘ÎÛ‚ÍRGB‚Ì‚İ
-                if (!r.stucking)
+                // è‰²ã®å¤‰åŒ–
+                r.color += property.accelColor;  // ColorFã‚’ã€Œ+=ã€ã—ãŸå ´åˆã€å¯¾è±¡ã¯RGBã®ã¿
+                if (!r.bounceBack)
                     r.color.a += property.accelColor.a;
                 if (r.color.a <= 0.0) {
                     r.enable = false;
                     continue;
                 }
 
-                // ƒTƒCƒY‚Ì•Ï‰»
+                // ã‚µã‚¤ã‚ºã®å¤‰åŒ–
                 r.size += property.accelSize;
                 if (r.size <= 0.0) {
                     r.enable = false;
                     continue;
                 }
 
-                // ˆÚ“®
+                // ç§»å‹•
                 old = r.pos;
                 r.pos.x += cos(r.radian) * r.speed;
                 r.pos.y += sin(r.radian) * r.speed;
 
-                // ˆø—Í
+                // å¼•åŠ›
                 r.gravity += property.gravityPow;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
-                // •Ç
-                r.stucking = false;
+                // å£
+                r.bounceBack = false;
                 if (wallsEnable) {
                     if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size)) reflection(ReflectionAxis::Vertical,   r, old);
                     if ((property.wallBottom) && (r.pos.y > windowHeight - r.size)) reflection(ReflectionAxis::Horizontal, r, old);
@@ -321,30 +325,30 @@ namespace Particle2D
                     if ((property.wallTop)    && (r.pos.y < r.size))                reflection(ReflectionAxis::Horizontal, r, old);
                 }
 
-                // ‰æ–ÊŠO‚©‚Ç‚¤‚©
+                // ç”»é¢å¤–ã‹ã©ã†ã‹
                 if ((r.pos.x <= -r.size) || (r.pos.x >= windowWidth  + r.size) ||
                     (r.pos.y <= -r.size) || (r.pos.y >= windowHeight + r.size)) {
                     r.enable = false;
                     continue;
                 }
 
-                // ƒXƒs[ƒh‚Ì•Ï‰»
+                // ã‚¹ãƒ”ãƒ¼ãƒ‰ã®å¤‰åŒ–
                 r.speed += property.accelSpeed;
                 if (r.speed < 0.0) r.speed = 0.0;
             }
 
-            // –³Œø‚È—±q‚ğíœ
+            // ç„¡åŠ¹ãªç²’å­ã‚’å‰Šé™¤
             cleanElements(elements);
         }
 
 
 
-        // yƒƒ\ƒbƒhzƒhƒ[
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼
         void draw()
         {
-            s3d::RenderStateBlock2D tmp(property.blendState);  // tmp‚ª¶‚«‚Ä‚¢‚éŠÔ‚¾‚¯—LŒøB”jŠü‚ÉŒ³‚É–ß‚é
+            s3d::RenderStateBlock2D tmp(property.blendState);  // tmpãŒç”Ÿãã¦ã„ã‚‹é–“ã ã‘æœ‰åŠ¹ã€‚ç ´æ£„æ™‚ã«å…ƒã«æˆ»ã‚‹
 
-            for (auto &r : elements)
+            for (auto& r : elements)
                 s3d::Circle(r.pos, r.size).draw(r.color);
         }
     };
@@ -354,17 +358,17 @@ namespace Particle2D
 
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // yCircle‚ğŒp³z’W‚¢Œõ‚Ìƒp[ƒeƒBƒNƒ‹i‚È‚ß‚ç‚©‚¾‚ªd‚¢j
+    // ã€Circleã‚’ç¶™æ‰¿ã€‘æ·¡ã„å…‰ã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ï¼ˆãªã‚ã‚‰ã‹ã ãŒé‡ã„ï¼‰
     //
     class CircleLight : public Circle
     {
     public:
-        // yƒƒ\ƒbƒhzƒhƒ[iƒI[ƒo[ƒ‰ƒCƒhj
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼ï¼ˆã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ï¼‰
         void draw()
         {
             s3d::RenderStateBlock2D tmp(property.blendState);
 
-            for (auto &r : elements)
+            for (auto& r : elements)
                 s3d::Circle(r.pos, r.size).drawShadow(Vec2(0, 0), 10.0, 2.0, r.color);
         }
     };
@@ -374,38 +378,38 @@ namespace Particle2D
 
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // yCircle‚ğŒp³z‰Œ‚Ìƒp[ƒeƒBƒNƒ‹
+    // ã€Circleã‚’ç¶™æ‰¿ã€‘ç…™ã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«
     //
     class CircleSmoke : public Circle
     {
     private:
-        // y’Ç‰ÁƒtƒB[ƒ‹ƒhz
+        // ã€è¿½åŠ ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã€‘
         int layerQty;
 
     public:
-        // yƒRƒ“ƒXƒgƒ‰ƒNƒ^z
+        // ã€ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã€‘
         CircleSmoke() : layerQty(5)
         {}
 
-        // yƒZƒbƒ^z‰Šúƒpƒ‰ƒ[ƒ^Bƒƒ\ƒbƒhƒ`ƒF[ƒ“•û®
+        // ã€ã‚»ãƒƒã‚¿ã€‘åˆæœŸãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã€‚ãƒ¡ã‚½ãƒƒãƒ‰ãƒã‚§ãƒ¼ãƒ³æ–¹å¼
         CircleSmoke& layerQuantity(int qty)
         { 
-            if (qty < 1) qty = 1;
+            if (qty < 1)  qty = 1;
             if (qty > 10) qty = 10;
             layerQty = qty;
             return *this;
         }
 
-        // yƒƒ\ƒbƒhzƒhƒ[iƒI[ƒo[ƒ‰ƒCƒhj
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼ï¼ˆã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ï¼‰
         void draw()
         {
             double ratio;
             s3d::RenderStateBlock2D tmp(property.blendState);
 
             for (int i = 0; i < layerQty; ++i) {
-                ratio = i / static_cast<double>(layerQty);
-                for (auto &r : elements)
-                    s3d::Circle(r.pos, r.size - r.size * ratio).draw(r.color);
+                ratio = One - i / static_cast<double>(layerQty);
+                for (auto& r : elements)
+                    s3d::Circle(r.pos, r.size * ratio).draw(r.color);
             }
         }
     };
@@ -415,20 +419,20 @@ namespace Particle2D
 
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // yƒƒCƒ“ƒNƒ‰ƒXz“_‚Ìƒp[ƒeƒBƒNƒ‹
-    // “_Œnƒp[ƒeƒBƒNƒ‹‚ÌŒ³‚Æ‚È‚éƒNƒ‰ƒXB‘¼‚Ì“_Œnƒp[ƒeƒBƒNƒ‹‚Í‚±‚ê‚ğŠg’£iŒp³j‚µ‚½‚à‚ÌB
-    // Å‚à‘½‚­‚Ìƒp[ƒeƒBƒNƒ‹‚ğ•`‰æ‚Å‚«‚éB‚½‚¾‚µA‚±‚ÌƒNƒ‰ƒX‚Íƒp[ƒeƒBƒNƒ‹”‚ª
-    // u0v‚Å‚à‰æ–Ê‘S‘Ì‚ÌƒCƒ[ƒW‚ğ•¡»••`‰æ‚·‚é‚½‚ßAÅ’á•‰‰×‚Í‚‚ßB
-    // scaleƒƒ\ƒbƒh‚Å 1.0`8.0 ‚ªw’è‰Â”\B‚‚¢‚Ù‚ÇŠg‘å‚³‚ê‚é‚ª•‰‰×‚ğŒyŒ¸‚Å‚«‚éB
-    // ¦‚±‚Ìd‘g‚İ‚ÍA}Œ`‚Ì•`‰æ‚ªd‚­AƒuƒŒƒ“ƒfƒBƒ“ƒO‚àŒø‚©‚È‚¢‚½‚ßu“_Œnv‚Å‚Ì‚İÌ—p
+    // ã€ãƒ¡ã‚¤ãƒ³ã‚¯ãƒ©ã‚¹ã€‘ç‚¹ã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«
+    // ç‚¹ç³»ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ã®å…ƒã¨ãªã‚‹ã‚¯ãƒ©ã‚¹ã€‚ä»–ã®ç‚¹ç³»ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ã¯ã“ã‚Œã‚’æ‹¡å¼µï¼ˆç¶™æ‰¿ï¼‰ã—ãŸã‚‚ã®ã€‚
+    // æœ€ã‚‚å¤šãã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ã‚’æç”»ã§ãã‚‹ã€‚ãŸã ã—ã€ã“ã®ã‚¯ãƒ©ã‚¹ã¯ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«æ•°ãŒ
+    // ã€Œ0ã€ã§ã‚‚ç”»é¢å…¨ä½“ã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’è¤‡è£½ï¼†æç”»ã™ã‚‹ãŸã‚ã€æœ€ä½è² è·ã¯é«˜ã‚ã€‚
+    // resolutionãƒ¡ã‚½ãƒƒãƒ‰ã§ 1.0ï½8.0 ãŒæŒ‡å®šã§ãã€é«˜ã„ã»ã©ç²—ããªã‚‹ä»£ã‚ã‚Šã«è² è·ã‚’è»½æ¸›ã§ãã‚‹ã€‚
+    // â€»ã“ã®ä»•çµ„ã¿ã¯ã€å›³å½¢ã®æç”»ãŒé‡ãã€ãƒ–ãƒ¬ãƒ³ãƒ‡ã‚£ãƒ³ã‚°ã‚‚åŠ¹ã‹ãªã„ãŸã‚ã€Œç‚¹ç³»ã€ã®ã¿
     //
     class Dot : public InternalWorks
     {
     protected:
-        // ƒNƒ‰ƒX“à•”‚Åg—p‚·‚é\‘¢‘Ì
+        // ã‚¯ãƒ©ã‚¹å†…éƒ¨ã§ä½¿ç”¨ã™ã‚‹æ§‹é€ ä½“
         struct DotProperty : public Property, public Element
         {
-            double         scale;
+            double         resolution;
             SamplerState   samplerState;
             DynamicTexture tex;
             Image          img;
@@ -438,22 +442,22 @@ namespace Particle2D
         };
 
 
-        // yƒtƒB[ƒ‹ƒhz
+        // ã€ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã€‘
         DotProperty property;
         std::vector<Element> elements;
 
 
 
     public:
-        // yƒRƒ“ƒXƒgƒ‰ƒNƒ^z
+        // ã€ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã€‘
         Dot(size_t reserve = 10000)
         {
             elements.reserve(reserve);
-            scale(3.0);
+            resolution(3.0);
         }
 
 
-        // yƒZƒbƒ^zŠe‰Šúƒpƒ‰ƒ[ƒ^Bƒƒ\ƒbƒhƒ`ƒF[ƒ“•û®
+        // ã€ã‚»ãƒƒã‚¿ã€‘å„åˆæœŸãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã€‚ãƒ¡ã‚½ãƒƒãƒ‰ãƒã‚§ãƒ¼ãƒ³æ–¹å¼
         Dot& pos(         Vec2   pos)    { property.pos         = pos;                     return *this; }
         Dot& speed(       double speed)  { property.speed       = fixSpeed(speed);         return *this; }
         Dot& color(       Color  color)  { property.color       = color;                   return *this; }
@@ -467,62 +471,64 @@ namespace Particle2D
         Dot& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
         Dot& walls(bool right, bool bottom, bool left, bool top) { property.wallRight = right; property.wallBottom = bottom; property.wallLeft = left; property.wallTop = top; return *this; }
 
-        Dot& smooth(bool val)
+		// ã‚¹ãƒ ãƒ¼ã‚¸ãƒ³ã‚°
+        Dot& smoothing(bool isSmooth)
         {
-            property.samplerState = val ? s3d::SamplerState::Default2D :
-                                          s3d::SamplerState::ClampNearest;
+            property.samplerState = isSmooth ? s3d::SamplerState::Default2D :
+                                               s3d::SamplerState::ClampNearest;
             return *this;
         }
 
-        Dot& scale(double _scale)
+		// è§£åƒåº¦ã€‚1.0ï¼ˆç­‰å€ï¼‰ ï½ 8.0
+        Dot& resolution(double scale)
         {
             static double oldScale = -1;
 
-            if (_scale < 1.0) _scale = 1.0;
-            if (_scale > 8.0) _scale = 8.0;
+            if (scale < 1.0) scale = 1.0;
+            if (scale > 8.0) scale = 8.0;
 
-            if (_scale != oldScale) {
-                property.scale = _scale;
+            if (scale != oldScale) {
+                property.resolution = scale;
 
-                // V‚µ‚¢ƒTƒCƒY‚Ìƒuƒ‰ƒ“ƒNƒCƒ[ƒW‚ğì‚é
-                property.blankImg = s3d::Image(static_cast<int>(Window::Width()  / property.scale),
-                                               static_cast<int>(Window::Height() / property.scale));
+                // æ–°ã—ã„ã‚µã‚¤ã‚ºã®ãƒ–ãƒ©ãƒ³ã‚¯ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ä½œã‚‹
+                property.blankImg = s3d::Image(static_cast<int>(Window::Width()  / property.resolution),
+                                               static_cast<int>(Window::Height() / property.resolution));
 
-                // “®“IƒeƒNƒXƒ`ƒƒ‚Íu“¯‚¶ƒTƒCƒYv‚ÌƒCƒ[ƒW‚ğ‹Ÿ‹‹‚µ‚È‚¢‚Æ•`‰æ‚³‚ê‚È‚¢‚½‚ßƒŠƒZƒbƒgB
-                // ‚Ü‚½AƒeƒNƒXƒ`ƒƒ‚âƒCƒ[ƒW‚Ìrelease‚âclear‚ÍA˜A‘±‚ÅŒÄ‚Ño‚·‚ÆƒGƒ‰[‚·‚é
+                // å‹•çš„ãƒ†ã‚¯ã‚¹ãƒãƒ£ã¯ã€ŒåŒã˜ã‚µã‚¤ã‚ºã€ã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ä¾›çµ¦ã—ãªã„ã¨æç”»ã•ã‚Œãªã„ãŸã‚ãƒªã‚»ãƒƒãƒˆã€‚
+                // ã¾ãŸã€ãƒ†ã‚¯ã‚¹ãƒãƒ£ã‚„ã‚¤ãƒ¡ãƒ¼ã‚¸ã®releaseã‚„clearã¯ã€é€£ç¶šã§å‘¼ã³å‡ºã™ã¨ã‚¨ãƒ©ãƒ¼ã™ã‚‹
                 property.tex.release();
 
-                oldScale = property.scale;
+                oldScale = property.resolution;
             }
 
             return *this;
         }
 
 
-        // yƒƒ\ƒbƒhz¶¬
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ç”Ÿæˆ
         void create(int quantity)
         {
             double rad, randRad, speed;
-            double radRangeFix    = property.radianRange * 0.5;
-            double speedRandLower = -property.randPow * 0.5;
-            Vec2 pos = property.pos / property.scale;
+            double radRangeFix    = property.radianRange * Half;
+            double speedRandLower = -property.randPow * Half;
+            Vec2 pos = property.pos / property.resolution;
 
             for (int i = 0; i < quantity; ++i) {
-                // Šp“x
+                // è§’åº¦
                 randRad = Random(property.radianRange) - radRangeFix;
                 rad     = fmod(property.radian + randRad + TwoPi, TwoPi);
 
-                // ƒXƒs[ƒh
+                // ã‚¹ãƒ”ãƒ¼ãƒ‰
                 speed = property.speed + Random(speedRandLower, property.randPow);
 
-                // —v‘f‚ğ’Ç‰Á
+                // è¦ç´ ã‚’è¿½åŠ 
                 elements.emplace_back(Element(pos, rad, speed, property.color));
             }
         }
 
 
 
-        // yƒƒ\ƒbƒhzƒAƒbƒvƒf[ƒg
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ã‚¢ãƒƒãƒ—ãƒ‡ãƒ¼ãƒˆ
         void update()
         {
             int    imgWidth    = property.blankImg.width();
@@ -532,28 +538,28 @@ namespace Particle2D
             bool   wallsEnable = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
             Vec2   old;
 
-            for (auto &r : elements) {
-                // F‚Ì•Ï‰»
-                r.color += property.accelColor;  // ColorF‚ğu+=v‚µ‚½ê‡A‘ÎÛ‚ÍRGB‚Ì‚İ
-                if (!r.stucking)
+            for (auto& r : elements) {
+                // è‰²ã®å¤‰åŒ–
+                r.color += property.accelColor;  // ColorFã‚’ã€Œ+=ã€ã—ãŸå ´åˆã€å¯¾è±¡ã¯RGBã®ã¿
+                if (!r.bounceBack)
                     r.color.a += property.accelColor.a;
                 if (r.color.a <= 0.0) {
                     r.enable = false;
                     continue;
                 }
 
-                // ˆÚ“®
+                // ç§»å‹•
                 old = r.pos;
                 r.pos.x += cos(r.radian) * r.speed;
                 r.pos.y += sin(r.radian) * r.speed;
 
-                // ˆø—Í
+                // å¼•åŠ›
                 r.gravity += property.gravityPow;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
-                // •Ç
-                r.stucking = false;
+                // å£
+                r.bounceBack = false;
                 if (wallsEnable) {
                     if ((property.wallRight)  && (r.pos.x > imgWidth))  reflection(ReflectionAxis::Vertical,   r, old);
                     if ((property.wallBottom) && (r.pos.y > imgHeight)) reflection(ReflectionAxis::Horizontal, r, old);
@@ -561,43 +567,43 @@ namespace Particle2D
                     if ((property.wallTop)    && (r.pos.y < 0.0))       reflection(ReflectionAxis::Horizontal, r, old);
                 }
 
-                // ‰æ–ÊŠO‚©‚Ç‚¤‚©ipos‚ÍƒCƒ[ƒW”z—ñ‚Ì“Y‚¦š‚É‚È‚é‚Ì‚ÅA‚»‚Ìƒ`ƒFƒbƒN‚àŒ“‚Ë‚éj
+                // ç”»é¢å¤–ã‹ã©ã†ã‹ï¼ˆposã¯ã‚¤ãƒ¡ãƒ¼ã‚¸é…åˆ—ã®æ·»ãˆå­—ã«ãªã‚‹ã®ã§ã€ãã®ãƒã‚§ãƒƒã‚¯ã‚‚å…¼ã­ã‚‹ï¼‰
                 if ((r.pos.x < 0.0) || (r.pos.x >= imgWidth) ||
                     (r.pos.y < 0.0) || (r.pos.y >= imgHeight)) {
                     r.enable = false;
                     continue;
                 }
 
-                // ƒXƒs[ƒh‚Ì•Ï‰»
+                // ã‚¹ãƒ”ãƒ¼ãƒ‰ã®å¤‰åŒ–
                 r.speed += property.accelSpeed;
                 if (r.speed < 0.0) r.speed = 0.0;
             }
 
-            // –³Œø‚È—±q‚ğíœ
+            // ç„¡åŠ¹ãªç²’å­ã‚’å‰Šé™¤
             cleanElements(elements);
         }
 
 
 
-        // yƒƒ\ƒbƒhzƒhƒ[
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼
         void draw()
         {
-            static ColorF src, dst;
-            static Point pos;
+            ColorF src, dst;
+            Point pos;
 
-            // ƒCƒ[ƒW‚ğƒNƒŠƒAiclearŠÖ”‚à‚ ‚é‚ª˜A‘±‚ÅŒÄ‚Ño‚·‚ÆƒGƒ‰[‚·‚éj
+            // ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚¯ãƒªã‚¢ï¼ˆclearé–¢æ•°ã‚‚ã‚ã‚‹ãŒé€£ç¶šã§å‘¼ã³å‡ºã™ã¨ã‚¨ãƒ©ãƒ¼ã™ã‚‹ï¼‰
             property.img = property.blankImg;
 
-            // ƒCƒ[ƒW‚ğì¬i—±q‚Ì”‚¾‚¯ˆ—Bpos‚ªŠmÀ‚Éimg[n]‚Ì”ÍˆÍ“à‚Å‚ ‚é‚±‚Æj
-            for (auto &r : elements)
+            // ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ä½œæˆï¼ˆç²’å­ã®æ•°ã ã‘å‡¦ç†ã€‚posãŒç¢ºå®Ÿã«img[n]ã®ç¯„å›²å†…ã§ã‚ã‚‹ã“ã¨ï¼‰
+            for (auto& r : elements)
                 property.img[r.pos.asPoint()].set(r.color);
 
-            // “®“IƒeƒNƒXƒ`ƒƒ‚ğXV
+            // å‹•çš„ãƒ†ã‚¯ã‚¹ãƒãƒ£ã‚’æ›´æ–°
             property.tex.fill(property.img);
 
-            // “®“IƒeƒNƒXƒ`ƒƒ‚ğƒhƒ[
+            // å‹•çš„ãƒ†ã‚¯ã‚¹ãƒãƒ£ã‚’ãƒ‰ãƒ­ãƒ¼
             s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
-            property.tex.scaled(property.scale).draw();
+            property.tex.scaled(property.resolution).draw();
         }
     };
 
@@ -606,41 +612,41 @@ namespace Particle2D
 
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // yDot‚ğŒp³z“_‚Ìƒp[ƒeƒBƒNƒ‹i‰ÁZ‡¬j
+    // ã€Dotã‚’ç¶™æ‰¿ã€‘ç‚¹ã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ï¼ˆåŠ ç®—åˆæˆï¼‰
     //
     class DotBlended : public Dot
     {
     public:
-        // yƒƒ\ƒbƒhzƒhƒ[iƒI[ƒo[ƒ‰ƒCƒhj
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼ï¼ˆã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ï¼‰
         void draw()
         {
-            static ColorF src, dst;
-            static Point pos;
+            ColorF src, dst;
+            Point pos;
 
-            // ƒCƒ[ƒW‚ğƒNƒŠƒAiclearŠÖ”‚à‚ ‚é‚ª˜A‘±‚ÅŒÄ‚Ño‚·‚ÆƒGƒ‰[‚·‚éj
+            // ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ã‚¯ãƒªã‚¢ï¼ˆclearé–¢æ•°ã‚‚ã‚ã‚‹ãŒé€£ç¶šã§å‘¼ã³å‡ºã™ã¨ã‚¨ãƒ©ãƒ¼ã™ã‚‹ï¼‰
             property.img = property.blankImg;
 
-            // ƒCƒ[ƒW‚ğì¬i—±q‚Ì”‚¾‚¯ˆ—Bpos‚ªŠmÀ‚Éimg[n]‚Ì”ÍˆÍ“à‚Å‚ ‚é‚±‚Æj
-            for (auto &r : elements) {
-                pos = r.pos.asPoint();  // Vec2Œ^‚Ìpos‚ğAPointŒ^‚É•ÏŠ·
+            // ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’ä½œæˆï¼ˆç²’å­ã®æ•°ã ã‘å‡¦ç†ã€‚posãŒç¢ºå®Ÿã«img[n]ã®ç¯„å›²å†…ã§ã‚ã‚‹ã“ã¨ï¼‰
+            for (auto& r : elements) {
+                pos = r.pos.asPoint();  // Vec2å‹ã®posã‚’ã€Pointå‹ã«å¤‰æ›
 
-                // Œ»İˆÊ’uiÀ•Wj‚ÌF‚ğ‹‚ß‚éi©‘O‚Ì‰ÁZƒuƒŒƒ“ƒfƒBƒ“ƒOj
+                // ç¾åœ¨ä½ç½®ï¼ˆåº§æ¨™ï¼‰ã®è‰²ã‚’æ±‚ã‚ã‚‹ï¼ˆè‡ªå‰ã®åŠ ç®—ãƒ–ãƒ¬ãƒ³ãƒ‡ã‚£ãƒ³ã‚°ï¼‰
                 src = property.img[pos];
                 dst.r = src.r + r.color.r * r.color.a;
                 dst.g = src.g + r.color.g * r.color.a;
                 dst.b = src.b + r.color.b * r.color.a;
-                dst.a = src.a + r.color.a;  // –{—ˆ‚Íˆá‚¤‚©‚à‚µ‚ê‚È‚¢‚ªŒ©‰h‚¦‚ª‚æ‚¢iƒLƒ‰ƒLƒ‰‚·‚éj
+                dst.a = src.a + r.color.a;  // æœ¬æ¥ã¯é•ã†ã‹ã‚‚ã—ã‚Œãªã„ãŒè¦‹æ „ãˆãŒã‚ˆã„ï¼ˆã‚­ãƒ©ã‚­ãƒ©ã™ã‚‹ï¼‰
 
-                // ‹‚ß‚½F‚ğƒZƒbƒg
+                // æ±‚ã‚ãŸè‰²ã‚’ã‚»ãƒƒãƒˆ
                 property.img[pos].set(dst);
             }
             
-            // “®“IƒeƒNƒXƒ`ƒƒ‚ğXV
+            // å‹•çš„ãƒ†ã‚¯ã‚¹ãƒãƒ£ã‚’æ›´æ–°
             property.tex.fill(property.img);
 
-            // “®“IƒeƒNƒXƒ`ƒƒ‚ğƒhƒ[
+            // å‹•çš„ãƒ†ã‚¯ã‚¹ãƒãƒ£ã‚’ãƒ‰ãƒ­ãƒ¼
             s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
-            property.tex.scaled(property.scale).draw();
+            property.tex.scaled(property.resolution).draw();
         }
     };
 
@@ -649,20 +655,20 @@ namespace Particle2D
 
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // yƒƒCƒ“ƒNƒ‰ƒXz¯‚Ìƒp[ƒeƒBƒNƒ‹
-    // nŠpŒ`‚ÆƒeƒNƒXƒ`ƒƒƒp[ƒeƒBƒNƒ‹‚ÌŒ³‚Æ‚È‚éƒNƒ‰ƒXBnŠpŒ`‚ÆƒeƒNƒXƒ`ƒƒƒp[ƒeƒBƒNƒ‹‚Í‚±‚ê‚ğŠg’£iŒp³j‚µ‚½‚à‚ÌB
+    // ã€ãƒ¡ã‚¤ãƒ³ã‚¯ãƒ©ã‚¹ã€‘æ˜Ÿã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«
+    // nè§’å½¢ã¨ãƒ†ã‚¯ã‚¹ãƒãƒ£ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ã®å…ƒã¨ãªã‚‹ã‚¯ãƒ©ã‚¹ã€‚nè§’å½¢ã¨ãƒ†ã‚¯ã‚¹ãƒãƒ£ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ã¯ã“ã‚Œã‚’æ‹¡å¼µï¼ˆç¶™æ‰¿ï¼‰ã—ãŸã‚‚ã®ã€‚
     //
     class Star : public InternalWorks
     {
     protected:
-        // ƒNƒ‰ƒX“à•”‚Åg—p‚·‚é\‘¢‘Ì
+        // ã‚¯ãƒ©ã‚¹å†…éƒ¨ã§ä½¿ç”¨ã™ã‚‹æ§‹é€ ä½“
         struct StarElement : public Element
         {
             double size;
             double rotateRad;
             double rotateSpeed;
             StarElement() :
-                size(10.0), rotateSpeed(0.0)
+                size(20.0), rotateSpeed(0.0)
             {}
             StarElement(Vec2 _pos, double _size, double _radian, double _speed, ColorF _color, double _rotateRad, double _rotateSpeed) :
                 Element(_pos, _radian, _speed, _color), size(_size), rotateRad(_rotateRad), rotateSpeed(_rotateSpeed)
@@ -680,31 +686,30 @@ namespace Particle2D
         };
 
 
-        // yƒtƒB[ƒ‹ƒhz
+        // ã€ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã€‘
         StarProperty property;
         std::vector<StarElement> elements;
-        double frameOutMarginRatio;  // Rect‚È‚Ç‚ÅŒX‚¢‚Ä‚¢‚Ä‚à“rØ‚ê‚È‚¢‚æ‚¤‚É—]”’’²®‚·‚é’l
 
 
 
     public:
-        // yƒRƒ“ƒXƒgƒ‰ƒNƒ^z
-        Star(size_t reserve = 3000) : frameOutMarginRatio(1.0)
+        // ã€ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã€‘
+        Star(size_t reserve = 2000)
         {
             elements.reserve(reserve);
         }
 
 
-        // yƒZƒbƒ^zŠe‰Šúƒpƒ‰ƒ[ƒ^Bƒƒ\ƒbƒhƒ`ƒF[ƒ“•û®
+        // ã€ã‚»ãƒƒã‚¿ã€‘å„åˆæœŸãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã€‚ãƒ¡ã‚½ãƒƒãƒ‰ãƒã‚§ãƒ¼ãƒ³æ–¹å¼
         Star& pos(         Vec2   pos)    { property.pos         = pos;                     return *this; }
         Star& size(        double size)   { property.size        = fixSize(size);           return *this; }
         Star& speed(       double speed)  { property.speed       = fixSpeed(speed);         return *this; }
-        Star& color(       Color  color)  { property.color       = color;                   return *this; }
+        Star& color(       ColorF color)  { property.color       = color;                   return *this; }
         Star& angle(       double degree) { property.radian      = convRadian(degree);      return *this; }
         Star& angleRange(  double degree) { property.radianRange = convRadianRange(degree); return *this; }
         Star& accelSize(   double size)   { property.accelSize   = size;                    return *this; }
         Star& accelSpeed(  double speed)  { property.accelSpeed  = speed;                   return *this; }
-        Star& accelColor(  Color  color)  { property.accelColor  = color;                   return *this; }
+        Star& accelColor(  ColorF color)  { property.accelColor  = color;                   return *this; }
         Star& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);  return *this; }
         Star& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
         Star& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
@@ -712,8 +717,8 @@ namespace Particle2D
         Star& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
         Star& walls(bool right, bool bottom, bool left, bool top) { property.wallRight = right; property.wallBottom = bottom; property.wallLeft = left; property.wallTop = top; return *this; }
 
-
-        // yƒƒ\ƒbƒhz¶¬
+		
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ç”Ÿæˆ
         void create(int quantity)
         {
             double size, rad, randRad, speed, rotateSpeed;
@@ -723,27 +728,27 @@ namespace Particle2D
             double rotateSpeedRange = property.randPow * 0.002;
 
             for (int i = 0; i < quantity; ++i) {
-                // ƒTƒCƒY
+                // ã‚µã‚¤ã‚º
                 size = property.size + Random(-sizeRandRange, sizeRandRange);
 
-                // Šp“x
+                // è§’åº¦
                 randRad = Random(property.radianRange) - radRangeFix;
                 rad     = fmod(property.radian + randRad + TwoPi, TwoPi);
                 
-                // ƒXƒs[ƒh
+                // ã‚¹ãƒ”ãƒ¼ãƒ‰
                 speed = property.speed + Random(speedRandLower, property.randPow);
 
-                // ‰ñ“]
+                // å›è»¢
                 rotateSpeed = property.rotateSpeed + Random(-rotateSpeedRange, rotateSpeedRange);
 
-                // —v‘f‚ğ’Ç‰Á
-                elements.emplace_back(StarElement(property.pos, size, rad, speed, property.color, Random(TwoPi), rotateSpeed));
-            }
+                // è¦ç´ ã‚’è¿½åŠ 
+				elements.emplace_back(StarElement(property.pos, size, rad, speed, property.color, Random(TwoPi), rotateSpeed));
+			}
         }
 
 
 
-        // yƒƒ\ƒbƒhzƒAƒbƒvƒf[ƒg
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ã‚¢ãƒƒãƒ—ãƒ‡ãƒ¼ãƒˆ
         void update()
         {
             int    windowWidth  = Window::Width();
@@ -752,37 +757,36 @@ namespace Particle2D
             double gravityCos   = cos(property.gravityRad);
             bool   wallsEnable  = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
             Vec2   old;
-            int    margin;
 
-            for (auto &r : elements) {
-                // F‚Ì•Ï‰»
-                r.color += property.accelColor;  // ColorF‚ğu+=v‚µ‚½ê‡A‘ÎÛ‚ÍRGB‚Ì‚İ
-                if (!r.stucking)
+            for (auto& r : elements) {
+                // è‰²ã®å¤‰åŒ–
+                r.color += property.accelColor;  // ColorFã‚’ã€Œ+=ã€ã—ãŸå ´åˆã€å¯¾è±¡ã¯RGBã®ã¿
+                if (!r.bounceBack)
                     r.color.a += property.accelColor.a;
                 if (r.color.a <= 0.0) {
                     r.enable = false;
                     continue;
                 }
 
-                // ƒTƒCƒY‚Ì•Ï‰»
+                // ã‚µã‚¤ã‚ºã®å¤‰åŒ–
                 r.size += property.accelSize;
                 if (r.size <= 0.0) {
                     r.enable = false;
                     continue;
                 }
 
-                // ˆÚ“®
+                // ç§»å‹•
                 old = r.pos;
                 r.pos.x += cos(r.radian) * r.speed;
                 r.pos.y += sin(r.radian) * r.speed;
 
-                // ˆø—Í
+                // å¼•åŠ›
                 r.gravity += property.gravityPow;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
-                // •Ç
-                r.stucking = false;
+                // å£
+                r.bounceBack = false;
                 if (wallsEnable) {
                     if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size)) reflection(ReflectionAxis::Vertical,   r, old);
                     if ((property.wallBottom) && (r.pos.y > windowHeight - r.size)) reflection(ReflectionAxis::Horizontal, r, old);
@@ -790,37 +794,36 @@ namespace Particle2D
                     if ((property.wallTop)    && (r.pos.y < r.size))                reflection(ReflectionAxis::Horizontal, r, old);
                 }
 
-                // ‰æ–ÊŠO‚©‚Ç‚¤‚©
-                margin = r.size * frameOutMarginRatio;  // Rect‚È‚Ç‚ÅŒX‚¢‚Ä‚¢‚Ä‚à“rØ‚ê‚È‚¢‚æ‚¤‚É—]”’‚ğ’²®
-                if ((r.pos.x <= -margin) || (r.pos.x >= windowWidth  + margin) ||
-                    (r.pos.y <= -margin) || (r.pos.y >= windowHeight + margin)) {
-                    r.enable = false;
-                    continue;
-                }
+                // ç”»é¢å¤–ã‹ã©ã†ã‹
+				if ((r.pos.x <= -r.size) || (r.pos.x >= windowWidth  + r.size) ||
+					(r.pos.y <= -r.size) || (r.pos.y >= windowHeight + r.size)) {
+					r.enable = false;
+					continue;
+				}
 
-                // ƒXƒs[ƒh‚Ì•Ï‰»
+                // ã‚¹ãƒ”ãƒ¼ãƒ‰ã®å¤‰åŒ–
                 r.speed += property.accelSpeed;
                 if (r.speed < 0.0) r.speed = 0.0;
 
-                // ‰ñ“]
+                // å›è»¢
                 r.rotateRad += r.rotateSpeed;
                 if ((r.rotateRad < 0.0) || (r.rotateRad >= TwoPi))
                     r.rotateRad = fmod(r.rotateRad, TwoPi);
             }
 
-            // –³Œø‚È—±q‚ğíœ
+            // ç„¡åŠ¹ãªç²’å­ã‚’å‰Šé™¤
             cleanElements(elements);
         }
 
 
 
-        // yƒƒ\ƒbƒhzƒhƒ[
+        // ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼
         void draw()
         {
-            s3d::RenderStateBlock2D tmp(property.blendState);  // tmp‚ª¶‚«‚Ä‚¢‚éŠÔ‚¾‚¯—LŒøB”jŠü‚ÉŒ³‚É–ß‚é
+            s3d::RenderStateBlock2D tmp(property.blendState);  // tmpãŒç”Ÿãã¦ã„ã‚‹é–“ã ã‘æœ‰åŠ¹ã€‚ç ´æ£„æ™‚ã«å…ƒã«æˆ»ã‚‹
 
-            for (auto &r : elements)
-                Shape2D::Star(r.size, r.pos, r.rotateRad).draw(r.color);
+            for (auto& r : elements)
+				Shape2D::Star(r.size, r.pos, r.rotateRad).draw(r.color);
         }
     };
 
@@ -828,31 +831,162 @@ namespace Particle2D
 
 
 
-    /////////////////////////////////////////////////////////////////////////////////////
-    // yStar‚ğŒp³z³•ûŒ`‚Ìƒp[ƒeƒBƒNƒ‹
-    // nŠpŒ`‚ÆƒeƒNƒXƒ`ƒƒƒp[ƒeƒBƒNƒ‹‚ÌŒ³‚Æ‚È‚éƒNƒ‰ƒXBnŠpŒ`‚ÆƒeƒNƒXƒ`ƒƒƒp[ƒeƒBƒNƒ‹‚Í‚±‚ê‚ğŠg’£iŒp³j‚µ‚½‚à‚ÌB
-    //
-    class Rect : public Star
-    {
-    public:
-        // yƒRƒ“ƒXƒgƒ‰ƒNƒ^z
-        Rect()
-        {
-            frameOutMarginRatio = 1.2;  // Rect‚ªŒX‚¢‚Ä‚¢‚Ä‚à“rØ‚ê‚È‚¢‚æ‚¤‚É—]”’’²®‚·‚é’l
-        }
+	/////////////////////////////////////////////////////////////////////////////////////
+	// ã€Starã‚’ç¶™æ‰¿ã€‘æ­£æ–¹å½¢ã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«
+	//
+	class Rect : public Star
+	{
+	public:
+		// ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼ï¼ˆã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ï¼‰
+		// s3dã«ãŠã‘ã‚‹Circleã‚„Starã®ã‚µã‚¤ã‚ºã¯ã€ŒåŠå¾„ * 2ã€ã§ã‚ã‚‹ãŒã€Rectã®ã‚µã‚¤ã‚ºã¯
+		//ã€Œå·¦ä¸Šã‚’åŸºç‚¹ã¨ã—ãŸç¸¦æ¨ªã®é•·ã•ã€ãªã®ã§ã€åŸºç‚¹ãŒé•ã†ä¸Šã€è¦‹ã‹ã‘ã®å¤§ãã•ã¯åŠåˆ†ã¨ãªã‚‹ã€‚
+		// ã“ã‚Œã‚’Circleãªã©ã¨å‡¦ç†ã‚’å…±é€šã«ã™ã‚‹ã«ã¯ã€RectãŒ45Â°ã®ã¨ãã§ã‚‚ã€Œæƒ³å®šã™ã‚‹å††ã€ã‚’ã¯ã¿å‡ºãªã„
+		// ã‚®ãƒªã‚®ãƒªã®å¤§ãã•ã«ã™ã‚‹ï¼ˆæƒ³å®šã™ã‚‹å††ã«å†…æ¥ã™ã‚‹æ­£æ–¹å½¢ã®å¤§ãã•ï¼‰
+		void draw()
+		{
+			s3d::RenderStateBlock2D tmp(property.blendState);  // tmpãŒç”Ÿãã¦ã„ã‚‹é–“ã ã‘æœ‰åŠ¹ã€‚ç ´æ£„æ™‚ã«å…ƒã«æˆ»ã‚‹
+
+			for (auto& r : elements)
+				s3d::RectF(Arg::center = r.pos, r.size * RootTwo).rotated(r.rotateRad).draw(r.color);
+		}
+	};
 
 
-        // yƒƒ\ƒbƒhzƒhƒ[iƒI[ƒo[ƒ‰ƒCƒhj
-        // s3d‚É‚¨‚¯‚éCircle‚âStar‚ÌƒTƒCƒY‚Íu”¼Œa * 2v‚Å‚ ‚é‚ªARect‚ÌƒTƒCƒY‚Í
-        //u¶ã‚ğŠî“_‚Æ‚µ‚½c‰¡‚Ì’·‚³v‚È‚Ì‚ÅAŠî“_‚ªˆá‚¤ãAŒ©‚©‚¯‚Ì‘å‚«‚³‚Í”¼•ª‚Æ‚È‚éB
-        // ‚±‚ê‚ğCircle‚È‚Ç‚Æ‹¤’Ê‚É‚·‚é‚½‚ßu•`‰æˆÊ’u = pos - sizevu•`‰æƒTƒCƒY = size * 2v‚Æ‚·‚éB
-        // ‚½‚¾‚µARect‚ªŒX‚¢‚Ä‚¢‚é‚ÆAŒë·‚ÅƒtƒŒ[ƒ€ƒAƒEƒg‚É“rØ‚ê‚Ä‚µ‚Ü‚¤
-        void draw()
-        {
-            s3d::RenderStateBlock2D tmp(property.blendState);  // tmp‚ª¶‚«‚Ä‚¢‚éŠÔ‚¾‚¯—LŒøB”jŠü‚ÉŒ³‚É–ß‚é
 
-            for (auto &r : elements)
-                s3d::Rect(r.pos.x - r.size, r.pos.y - r.size, r.size * 2.0).rotated(r.rotateRad).draw(r.color);
-        }
-    };
+
+
+	/////////////////////////////////////////////////////////////////////////////////////
+	// ã€Starã‚’ç¶™æ‰¿ã€‘äº”è§’å½¢ã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«
+	//
+	class Pentagon : public Star
+	{
+	public:
+		// ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼ï¼ˆã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ï¼‰
+		void draw()
+		{
+			s3d::RenderStateBlock2D tmp(property.blendState);  // tmpãŒç”Ÿãã¦ã„ã‚‹é–“ã ã‘æœ‰åŠ¹ã€‚ç ´æ£„æ™‚ã«å…ƒã«æˆ»ã‚‹
+			for (auto& r : elements)
+				Shape2D::Pentagon(r.size, r.pos, r.rotateRad).draw(r.color);
+		}
+	};
+
+
+
+
+
+	/////////////////////////////////////////////////////////////////////////////////////
+	// ã€Starã‚’ç¶™æ‰¿ã€‘æ˜Ÿã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ï¼ˆãƒ•ã‚§ãƒ¼ãƒ‰ï¼‰
+	//
+	class StarFade : public Star
+	{
+	protected:
+		// ã€è¿½åŠ ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã€‘
+		int layerQty;
+
+	public:
+		// ã€ã‚³ãƒ³ã‚¹ãƒˆãƒ©ã‚¯ã‚¿ã€‘
+		StarFade() : layerQty(5)
+		{}
+
+		// ã€ã‚»ãƒƒã‚¿ã€‘åˆæœŸãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã€‚ãƒ¡ã‚½ãƒƒãƒ‰ãƒã‚§ãƒ¼ãƒ³æ–¹å¼
+		StarFade& layerQuantity(int qty)
+		{ 
+			if (qty < 1)  qty = 1;
+			if (qty > 10) qty = 10;
+			layerQty = qty;
+			return *this;
+		}
+
+		// ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼ï¼ˆã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ï¼‰
+		void draw()
+		{
+			double ratio;
+			s3d::RenderStateBlock2D tmp(property.blendState);
+
+			for (int i = 0; i < layerQty; ++i) {
+				ratio = One - i / static_cast<double>(layerQty) * Half;
+				for (auto& r : elements)
+					Shape2D::Star(r.size * ratio, r.pos, r.rotateRad).draw(r.color);
+			}
+		}
+	};
+
+
+
+
+
+	/////////////////////////////////////////////////////////////////////////////////////
+	// ã€StarFadeã‚’ç¶™æ‰¿ã€‘æ­£æ–¹å½¢ã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ï¼ˆãƒ•ã‚§ãƒ¼ãƒ‰ï¼‰
+	//
+	class RectFade : public StarFade
+	{
+	public:
+		// ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼ï¼ˆã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ï¼‰
+		void draw()
+		{
+			double ratio;
+			s3d::RenderStateBlock2D tmp(property.blendState);
+
+			for (int i = 0; i < layerQty; ++i) {
+				ratio = One - i / static_cast<double>(layerQty) * Half;
+				for (auto& r : elements)
+					s3d::RectF(Arg::center = r.pos, r.size * RootTwo * ratio).rotated(r.rotateRad).draw(r.color);
+			}
+		}
+	};
+
+
+
+
+
+	/////////////////////////////////////////////////////////////////////////////////////
+	// ã€StarFadeã‚’ç¶™æ‰¿ã€‘äº”è§’å½¢ã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«ï¼ˆãƒ•ã‚§ãƒ¼ãƒ‰ï¼‰
+	//
+	class PentagonFade : public StarFade
+	{
+	public:
+		// ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼ï¼ˆã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ï¼‰
+		void draw()
+		{
+			double ratio;
+			s3d::RenderStateBlock2D tmp(property.blendState);
+
+			for (int i = 0; i < layerQty; ++i) {
+				ratio = One - i / static_cast<double>(layerQty) * Half;
+				for (auto& r : elements)
+					Shape2D::Pentagon(r.size * ratio, r.pos, r.rotateRad).draw(r.color);
+			}
+		}
+	};
+
+
+
+
+
+	/////////////////////////////////////////////////////////////////////////////////////
+	// ã€Starã‚’ç¶™æ‰¿ã€‘ãƒ†ã‚¯ã‚¹ãƒãƒ£ã®ãƒ‘ãƒ¼ãƒ†ã‚£ã‚¯ãƒ«
+	//
+	class Texture : public Star
+	{
+	protected:
+		// ã€å†…éƒ¨ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã€‘
+		s3d::Texture tex;
+
+
+	public:
+		// ã€ã‚»ãƒƒã‚¿ã€‘æç”»ã™ã‚‹ãƒ†ã‚¯ã‚¹ãƒãƒ£ãƒ¼ã‚’ç™»éŒ²
+		void setTexture(s3d::Texture& texture)
+		{
+			tex = texture;
+		}
+
+		// ã€ãƒ¡ã‚½ãƒƒãƒ‰ã€‘ãƒ‰ãƒ­ãƒ¼ï¼ˆã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ï¼‰
+		void draw()
+		{
+			s3d::RenderStateBlock2D tmp(property.blendState);  // tmpãŒç”Ÿãã¦ã„ã‚‹é–“ã ã‘æœ‰åŠ¹ã€‚ç ´æ£„æ™‚ã«å…ƒã«æˆ»ã‚‹
+			// ãƒ†ã‚¯ã‚¹ãƒãƒ£ã®ã‚µã‚¤ã‚ºã‚‚Rectã¨åŒã˜ä»•æ§˜ã€‚åŸºç‚¹ã‚’ä¸­å¿ƒã§æç”»ã™ã‚‹ã«ã¯drawAtãƒ¡ã‚½ãƒƒãƒ‰ã‚’ä½¿ã†ã€‚
+			for (auto& r : elements)
+				tex.resized(r.size * RootTwo).rotated(r.rotateRad).drawAt(r.pos, r.color);
+		}
+	};
 }

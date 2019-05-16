@@ -4,27 +4,34 @@
 
 void Main()
 {
-    Particle2D::Rect particle;
+	Particle2D::DotBlended dot;
+    Particle2D::Texture    neko;
+	neko.setTexture(s3d::Texture(Emoji(U"🐈"), TextureDesc::Mipped));
+
 
     while (System::Update()) {
-        if (MouseL.pressed()) {
-            int x = Cursor::Pos().x;
-            int y = Cursor::Pos().y;
+		if (MouseL.down()) {
+			// 猫のパーティクルを生成
+			neko.pos(Cursor::Pos()).speed(3).accelSpeed(0).size(20).accelSize(4).random(5);
+			neko.color(ColorF(1.0, 1.0, 1.0, 1.0)).accelColor(ColorF(0.0, 0.0, 0.0, -0.005));
+			neko.create(5);
+		}
 
-            particle.pos(Vec2(x, y)).speed(2).accelSpeed(0).accelSize(0);
-            particle.angle(0).angleRange(360);
-            particle.color(ColorF(1.0, 0.85, 0.5, 0.8));
-            //particle.accelColor(ColorF(0.0, -0.02, -0.03, 0.05));
-            //particle.accelSize(0.1);
-            //particle.walls(true, true, true, true);
-            particle.size(50);
-            particle.rotate(0.0);
-            particle.create(10);
+		if (MouseL.pressed()) {
+			// 点のパーティクルを生成
+			dot.pos(Cursor::Pos()).speed(2.5).accelSpeed(-0.1).random(4);
+			dot.walls(true, true, true, true);
+			dot.create(200);
+
         }
-        
-        Circle(Window::Center(), 100).draw(Palette::Cyan);
-        
-        particle.update();
-        particle.draw();
+
+		// パーティクルをアップデート
+		dot.update();
+        neko.update();
+
+		// 背景とパーティクルをドロー
+		Circle(Window::Center(), 100).draw(Palette::Cyan);
+		neko.draw();
+		dot.draw();
     }
 }
