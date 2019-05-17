@@ -18,9 +18,9 @@ namespace Particle2D
         static inline const double TwoPi = Pi * 2.0;            // Radianの最大値
         static inline const double PiDivStraight = Pi / 180.0;  // Degに掛けるとRad
         static inline const double StraightDivPi = 180.0 / Pi;  // Radに掛けるとDeg
-		static inline const double RootTwo = 1.414213562373095; // 斜辺が45°の直角三角形における、斜辺の比（他の辺は共に1）
-		static inline const double One  = 1.0;                  // 1.0
-		static inline const double Half = 0.5;                  // 0.5
+        static inline const double RootTwo = 1.414213562373095; // 斜辺が45°の直角三角形における、斜辺の比（他の辺は共に1）
+        static inline const double One  = 1.0;                  // 1.0
+        static inline const double Half = 0.5;                  // 0.5
 
         struct ReflectionAxis  // 反射軸の定数。向きをラジアンで表す
         {
@@ -44,7 +44,7 @@ namespace Particle2D
             Element() :
                 pos(Vec2(0, 0)), radian(0.0), speed(5.0),
                 color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0),
-				bounceBack(false), enable(true)
+                bounceBack(false), enable(true)
             {}
             Element(Vec2 _pos, double _radian, double _speed, ColorF _color) :
                 pos(_pos), radian(_radian), speed(_speed), color(_color),
@@ -471,7 +471,7 @@ namespace Particle2D
         Dot& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
         Dot& walls(bool right, bool bottom, bool left, bool top) { property.wallRight = right; property.wallBottom = bottom; property.wallLeft = left; property.wallTop = top; return *this; }
 
-		// スムージング
+        // スムージング
         Dot& smoothing(bool isSmooth)
         {
             property.samplerState = isSmooth ? s3d::SamplerState::Default2D :
@@ -479,7 +479,7 @@ namespace Particle2D
             return *this;
         }
 
-		// 解像度。1.0（等倍） ～ 8.0
+        // 解像度。1.0（等倍） ～ 8.0
         Dot& resolution(double scale)
         {
             static double oldScale = -1;
@@ -717,7 +717,7 @@ namespace Particle2D
         Star& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
         Star& walls(bool right, bool bottom, bool left, bool top) { property.wallRight = right; property.wallBottom = bottom; property.wallLeft = left; property.wallTop = top; return *this; }
 
-		
+        
         // 【メソッド】生成
         void create(int quantity)
         {
@@ -742,8 +742,8 @@ namespace Particle2D
                 rotateSpeed = property.rotateSpeed + Random(-rotateSpeedRange, rotateSpeedRange);
 
                 // 要素を追加
-				elements.emplace_back(StarElement(property.pos, size, rad, speed, property.color, Random(TwoPi), rotateSpeed));
-			}
+                elements.emplace_back(StarElement(property.pos, size, rad, speed, property.color, Random(TwoPi), rotateSpeed));
+            }
         }
 
 
@@ -795,11 +795,11 @@ namespace Particle2D
                 }
 
                 // 画面外かどうか
-				if ((r.pos.x <= -r.size) || (r.pos.x >= windowWidth  + r.size) ||
-					(r.pos.y <= -r.size) || (r.pos.y >= windowHeight + r.size)) {
-					r.enable = false;
-					continue;
-				}
+                if ((r.pos.x <= -r.size) || (r.pos.x >= windowWidth  + r.size) ||
+                    (r.pos.y <= -r.size) || (r.pos.y >= windowHeight + r.size)) {
+                    r.enable = false;
+                    continue;
+                }
 
                 // スピードの変化
                 r.speed += property.accelSpeed;
@@ -823,7 +823,7 @@ namespace Particle2D
             s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
 
             for (auto& r : elements)
-				Shape2D::Star(r.size, r.pos, r.rotateRad).draw(r.color);
+                Shape2D::Star(r.size, r.pos, r.rotateRad).draw(r.color);
         }
     };
 
@@ -831,162 +831,162 @@ namespace Particle2D
 
 
 
-	/////////////////////////////////////////////////////////////////////////////////////
-	// 【Starを継承】正方形のパーティクル
-	//
-	class Rect : public Star
-	{
-	public:
-		// 【メソッド】ドロー（オーバーライド）
-		// s3dにおけるCircleやStarのサイズは「半径 * 2」であるが、Rectのサイズは
-		//「左上を基点とした縦横の長さ」なので、基点が違う上、見かけの大きさは半分となる。
-		// これをCircleなどと処理を共通にするには、Rectが45°のときでも「想定する円」をはみ出ない
-		// ギリギリの大きさにする（想定する円に内接する正方形の大きさ）
-		void draw()
-		{
-			s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【Starを継承】正方形のパーティクル
+    //
+    class Rect : public Star
+    {
+    public:
+        // 【メソッド】ドロー（オーバーライド）
+        // s3dにおけるCircleやStarのサイズは「半径 * 2」であるが、Rectのサイズは
+        //「左上を基点とした縦横の長さ」なので、基点が違う上、見かけの大きさは半分となる。
+        // これをCircleなどと処理を共通にするには、Rectが45°のときでも「想定する円」をはみ出ない
+        // ギリギリの大きさにする（想定する円に内接する正方形の大きさ）
+        void draw()
+        {
+            s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
 
-			for (auto& r : elements)
-				s3d::RectF(Arg::center = r.pos, r.size * RootTwo).rotated(r.rotateRad).draw(r.color);
-		}
-	};
-
-
-
-
-
-	/////////////////////////////////////////////////////////////////////////////////////
-	// 【Starを継承】五角形のパーティクル
-	//
-	class Pentagon : public Star
-	{
-	public:
-		// 【メソッド】ドロー（オーバーライド）
-		void draw()
-		{
-			s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
-			for (auto& r : elements)
-				Shape2D::Pentagon(r.size, r.pos, r.rotateRad).draw(r.color);
-		}
-	};
+            for (auto& r : elements)
+                s3d::RectF(Arg::center = r.pos, r.size * RootTwo).rotated(r.rotateRad).draw(r.color);
+        }
+    };
 
 
 
 
 
-	/////////////////////////////////////////////////////////////////////////////////////
-	// 【Starを継承】星のパーティクル（フェード）
-	//
-	class StarFade : public Star
-	{
-	protected:
-		// 【追加フィールド】
-		int layerQty;
-
-	public:
-		// 【コンストラクタ】
-		StarFade() : layerQty(5)
-		{}
-
-		// 【セッタ】初期パラメータ。メソッドチェーン方式
-		StarFade& layerQuantity(int qty)
-		{ 
-			if (qty < 1)  qty = 1;
-			if (qty > 10) qty = 10;
-			layerQty = qty;
-			return *this;
-		}
-
-		// 【メソッド】ドロー（オーバーライド）
-		void draw()
-		{
-			double ratio;
-			s3d::RenderStateBlock2D tmp(property.blendState);
-
-			for (int i = 0; i < layerQty; ++i) {
-				ratio = One - i / static_cast<double>(layerQty) * Half;
-				for (auto& r : elements)
-					Shape2D::Star(r.size * ratio, r.pos, r.rotateRad).draw(r.color);
-			}
-		}
-	};
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【Starを継承】五角形のパーティクル
+    //
+    class Pentagon : public Star
+    {
+    public:
+        // 【メソッド】ドロー（オーバーライド）
+        void draw()
+        {
+            s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
+            for (auto& r : elements)
+                Shape2D::Pentagon(r.size, r.pos, r.rotateRad).draw(r.color);
+        }
+    };
 
 
 
 
 
-	/////////////////////////////////////////////////////////////////////////////////////
-	// 【StarFadeを継承】正方形のパーティクル（フェード）
-	//
-	class RectFade : public StarFade
-	{
-	public:
-		// 【メソッド】ドロー（オーバーライド）
-		void draw()
-		{
-			double ratio;
-			s3d::RenderStateBlock2D tmp(property.blendState);
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【Starを継承】星のパーティクル（フェード）
+    //
+    class StarFade : public Star
+    {
+    protected:
+        // 【追加フィールド】
+        int layerQty;
 
-			for (int i = 0; i < layerQty; ++i) {
-				ratio = One - i / static_cast<double>(layerQty) * Half;
-				for (auto& r : elements)
-					s3d::RectF(Arg::center = r.pos, r.size * RootTwo * ratio).rotated(r.rotateRad).draw(r.color);
-			}
-		}
-	};
+    public:
+        // 【コンストラクタ】
+        StarFade() : layerQty(5)
+        {}
 
+        // 【セッタ】初期パラメータ。メソッドチェーン方式
+        StarFade& layerQuantity(int qty)
+        { 
+            if (qty < 1)  qty = 1;
+            if (qty > 10) qty = 10;
+            layerQty = qty;
+            return *this;
+        }
 
+        // 【メソッド】ドロー（オーバーライド）
+        void draw()
+        {
+            double ratio;
+            s3d::RenderStateBlock2D tmp(property.blendState);
 
-
-
-	/////////////////////////////////////////////////////////////////////////////////////
-	// 【StarFadeを継承】五角形のパーティクル（フェード）
-	//
-	class PentagonFade : public StarFade
-	{
-	public:
-		// 【メソッド】ドロー（オーバーライド）
-		void draw()
-		{
-			double ratio;
-			s3d::RenderStateBlock2D tmp(property.blendState);
-
-			for (int i = 0; i < layerQty; ++i) {
-				ratio = One - i / static_cast<double>(layerQty) * Half;
-				for (auto& r : elements)
-					Shape2D::Pentagon(r.size * ratio, r.pos, r.rotateRad).draw(r.color);
-			}
-		}
-	};
+            for (int i = 0; i < layerQty; ++i) {
+                ratio = One - i / static_cast<double>(layerQty) * Half;
+                for (auto& r : elements)
+                    Shape2D::Star(r.size * ratio, r.pos, r.rotateRad).draw(r.color);
+            }
+        }
+    };
 
 
 
 
 
-	/////////////////////////////////////////////////////////////////////////////////////
-	// 【Starを継承】テクスチャのパーティクル
-	//
-	class Texture : public Star
-	{
-	protected:
-		// 【内部フィールド】
-		s3d::Texture tex;
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【StarFadeを継承】正方形のパーティクル（フェード）
+    //
+    class RectFade : public StarFade
+    {
+    public:
+        // 【メソッド】ドロー（オーバーライド）
+        void draw()
+        {
+            double ratio;
+            s3d::RenderStateBlock2D tmp(property.blendState);
+
+            for (int i = 0; i < layerQty; ++i) {
+                ratio = One - i / static_cast<double>(layerQty) * Half;
+                for (auto& r : elements)
+                    s3d::RectF(Arg::center = r.pos, r.size * RootTwo * ratio).rotated(r.rotateRad).draw(r.color);
+            }
+        }
+    };
 
 
-	public:
-		// 【セッタ】描画するテクスチャーを登録
-		void setTexture(s3d::Texture& texture)
-		{
-			tex = texture;
-		}
 
-		// 【メソッド】ドロー（オーバーライド）
-		void draw()
-		{
-			s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
-			// テクスチャのサイズもRectと同じ仕様。基点を中心で描画するにはdrawAtメソッドを使う。
-			for (auto& r : elements)
-				tex.resized(r.size * RootTwo).rotated(r.rotateRad).drawAt(r.pos, r.color);
-		}
-	};
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【StarFadeを継承】五角形のパーティクル（フェード）
+    //
+    class PentagonFade : public StarFade
+    {
+    public:
+        // 【メソッド】ドロー（オーバーライド）
+        void draw()
+        {
+            double ratio;
+            s3d::RenderStateBlock2D tmp(property.blendState);
+
+            for (int i = 0; i < layerQty; ++i) {
+                ratio = One - i / static_cast<double>(layerQty) * Half;
+                for (auto& r : elements)
+                    Shape2D::Pentagon(r.size * ratio, r.pos, r.rotateRad).draw(r.color);
+            }
+        }
+    };
+
+
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【Starを継承】テクスチャのパーティクル
+    //
+    class Texture : public Star
+    {
+    protected:
+        // 【内部フィールド】
+        s3d::Texture tex;
+
+
+    public:
+        // 【セッタ】描画するテクスチャーを登録
+        void setTexture(s3d::Texture& texture)
+        {
+            tex = texture;
+        }
+
+        // 【メソッド】ドロー（オーバーライド）
+        void draw()
+        {
+            s3d::RenderStateBlock2D tmp(property.blendState);  // tmpが生きている間だけ有効。破棄時に元に戻る
+            // テクスチャのサイズもRectと同じ仕様。基点を中心で描画するにはdrawAtメソッドを使う。
+            for (auto& r : elements)
+                tex.resized(r.size * RootTwo).rotated(r.rotateRad).drawAt(r.pos, r.color);
+        }
+    };
 }
