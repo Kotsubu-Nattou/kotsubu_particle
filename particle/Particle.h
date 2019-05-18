@@ -241,17 +241,18 @@ namespace Particle2D
         Circle& pos(         Vec2   pos)    { property.pos         = pos;                     return *this; }
         Circle& size(        double size)   { property.size        = fixSize(size);           return *this; }
         Circle& speed(       double speed)  { property.speed       = fixSpeed(speed);         return *this; }
-        Circle& color(       Color  color)  { property.color       = color;                   return *this; }
+        Circle& color(       ColorF color)  { property.color       = color;                   return *this; }
         Circle& angle(       double degree) { property.radian      = convRadian(degree);      return *this; }
         Circle& angleRange(  double degree) { property.radianRange = convRadianRange(degree); return *this; }
         Circle& accelSize(   double size)   { property.accelSize   = size;                    return *this; }
         Circle& accelSpeed(  double speed)  { property.accelSpeed  = speed;                   return *this; }
-        Circle& accelColor(  Color  color)  { property.accelColor  = color;                   return *this; }
+        Circle& accelColor(  ColorF color)  { property.accelColor  = color;                   return *this; }
         Circle& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);  return *this; }
         Circle& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
         Circle& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
         Circle& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
         Circle& walls(bool right, bool bottom, bool left, bool top) { property.wallRight = right; property.wallBottom = bottom; property.wallLeft = left; property.wallTop = top; return *this; }
+
 
         // 【メソッド】生成
         void create(int quantity)
@@ -276,7 +277,6 @@ namespace Particle2D
                 elements.emplace_back(CircleElement(property.pos, size, rad, speed, property.color));
             }
         }
-
 
 
         // 【メソッド】アップデート
@@ -340,7 +340,6 @@ namespace Particle2D
             // 無効な粒子を削除
             cleanElements(elements);
         }
-
 
 
         // 【メソッド】ドロー
@@ -460,11 +459,11 @@ namespace Particle2D
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
         Dot& pos(         Vec2   pos)    { property.pos         = pos;                     return *this; }
         Dot& speed(       double speed)  { property.speed       = fixSpeed(speed);         return *this; }
-        Dot& color(       Color  color)  { property.color       = color;                   return *this; }
+        Dot& color(       ColorF color)  { property.color       = color;                   return *this; }
         Dot& angle(       double degree) { property.radian      = convRadian(degree);      return *this; }
         Dot& angleRange(  double degree) { property.radianRange = convRadianRange(degree); return *this; }
         Dot& accelSpeed(  double speed)  { property.accelSpeed  = speed;                   return *this; }
-        Dot& accelColor(  Color  color)  { property.accelColor  = color;                   return *this; }
+        Dot& accelColor(  ColorF color)  { property.accelColor  = color;                   return *this; }
         Dot& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);  return *this; }
         Dot& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
         Dot& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
@@ -479,7 +478,7 @@ namespace Particle2D
             return *this;
         }
 
-        // 解像度。1.0（等倍） ～ 8.0
+        // 解像度 1.0（等倍） ～ 8.0
         Dot& resolution(double scale)
         {
             static double oldScale = -1;
@@ -508,15 +507,17 @@ namespace Particle2D
         // 【メソッド】生成
         void create(int quantity)
         {
-            double rad, randRad, speed;
-            double radRangeFix    = property.radianRange * Half;
+            double rad, shake, range, speed;
+            double radShake       = (property.radianRange * property.randPow + property.randPow) * 0.05;
+            double radRangeHalf   = property.radianRange * Half;
             double speedRandLower = -property.randPow * Half;
-            Vec2 pos = property.pos / property.resolution;
+            Vec2   pos            = property.pos / property.resolution;
 
             for (int i = 0; i < quantity; ++i) {
                 // 角度
-                randRad = Random(property.radianRange) - radRangeFix;
-                rad     = fmod(property.radian + randRad + TwoPi, TwoPi);
+                range = Random(-radRangeHalf, radRangeHalf);
+                shake = Random(-radShake, radShake) * Random(One) * Random(One);
+                rad   = fmod(property.radian + range + shake + TwoPi, TwoPi);
 
                 // スピード
                 speed = property.speed + Random(speedRandLower, property.randPow);
@@ -525,7 +526,6 @@ namespace Particle2D
                 elements.emplace_back(Element(pos, rad, speed, property.color));
             }
         }
-
 
 
         // 【メソッド】アップデート
@@ -574,9 +574,18 @@ namespace Particle2D
                     continue;
                 }
 
-                // スピードの変化
-                r.speed += property.accelSpeed;
-                if (r.speed < 0.0) r.speed = 0.0;
+                if (r.pos == old) {
+                    // アルファを減衰
+                    r.color.a *= 0.95;
+                    if (r.color.a < 0.03) {
+                        r.enable = false;
+                    }
+                }
+                else {
+                    // スピードの変化
+                    r.speed += property.accelSpeed;
+                    if (r.speed < 0.0) r.speed = 0.0;
+                }
             }
 
             // 無効な粒子を削除
@@ -584,13 +593,9 @@ namespace Particle2D
         }
 
 
-
         // 【メソッド】ドロー
         void draw()
         {
-            ColorF src, dst;
-            Point pos;
-
             // イメージをクリア（clear関数もあるが連続で呼び出すとエラーする）
             property.img = property.blankImg;
 
@@ -656,7 +661,7 @@ namespace Particle2D
 
     /////////////////////////////////////////////////////////////////////////////////////
     // 【メインクラス】星のパーティクル
-    // n角形とテクスチャパーティクルの元となるクラス。n角形とテクスチャパーティクルはこれを拡張（継承）したもの。
+    // n角形やテクスチャパーティクルの元となるクラス
     //
     class Star : public InternalWorks
     {
@@ -747,7 +752,6 @@ namespace Particle2D
         }
 
 
-
         // 【メソッド】アップデート
         void update()
         {
@@ -814,7 +818,6 @@ namespace Particle2D
             // 無効な粒子を削除
             cleanElements(elements);
         }
-
 
 
         // 【メソッド】ドロー
@@ -969,16 +972,25 @@ namespace Particle2D
     class Texture : public Star
     {
     protected:
-        // 【内部フィールド】
-        s3d::Texture tex;
+        // 【追加フィールド】
+        s3d::Texture tex = s3d::Texture(Emoji(U"🐈"), TextureDesc::Mipped);
 
 
     public:
+        // 【コンストラクタ】
+        Texture()
+        {
+            property.color      = ColorF(1.0, 1.0, 1.0, 1.0);
+            property.accelColor = ColorF(0.0, 0.0, 0.0, -0.005);
+        }
+
+
         // 【セッタ】描画するテクスチャーを登録
         void setTexture(s3d::Texture& texture)
         {
             tex = texture;
         }
+
 
         // 【メソッド】ドロー（オーバーライド）
         void draw()
