@@ -39,16 +39,16 @@ namespace Particle2D
             double speed;
             ColorF color;
             double gravity;
-            bool   bounceBack;
+            bool   alphaLock;
             bool   enable;
             Element() :
                 pos(Vec2(0, 0)), radian(0.0), speed(5.0),
                 color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0),
-                bounceBack(false), enable(true)
+                alphaLock(false), enable(true)
             {}
             Element(Vec2 _pos, double _radian, double _speed, ColorF _color) :
                 pos(_pos), radian(_radian), speed(_speed), color(_color),
-                gravity(0.0), bounceBack(false), enable(true)
+                gravity(0.0), alphaLock(false), enable(true)
             {}
         };
 
@@ -68,7 +68,7 @@ namespace Particle2D
             bool         wallTop;
             Property() :
                 randPow(3.0), radianRange(TwoPi),
-                accelSpeed(-0.1), accelColor(0.0, -0.02, -0.03, -0.001),
+                accelSpeed(-0.1), accelColor(-0.01, -0.02, -0.03, -0.001),
                 gravityPow(0.2), gravityRad(Pi / 2.0),
                 blendState(s3d::BlendState::Additive),
                 wallRight(false), wallBottom(false), wallLeft(false), wallTop(false)
@@ -124,10 +124,24 @@ namespace Particle2D
 
         double convRadianRange(double degree)
         {
-            if (degree < 0.0) degree = 0.0;
+            if (degree <   0.0) degree = 0.0;
             if (degree > 360.0) degree = 360.0;
 
             return degree * PiDivStraight;
+        }
+
+
+        // 【メソッド】alphaを指定の割合に変更（フェードアウト用）
+        // 通常のalpha加減算処理を無効にするフラグを立てる（Element.alphaLock = true）
+        // もし、alphaが基準を下回った場合は、Element.enable = false
+        void fadeoutAlpha(Element& elem, double alphaRatio)
+        {
+            static const double LowerLimit  = 0.02;
+
+            elem.color.a *= alphaRatio;
+            if (elem.color.a < LowerLimit)
+                elem.enable = false;
+            elem.alphaLock = true;
         }
 
 
@@ -140,16 +154,12 @@ namespace Particle2D
             Vec2 dist;
             double rad;
             static const double AlphaFadeRatio  = 0.6;
-            static const double AlphaFadeLimit  = 0.03;
             static const double ReflectionRatio = 0.7;
             static const double TurnbackRatio   = 0.3;
 
             // アルファを減衰
-            elem.color.a *= AlphaFadeRatio;
-            if (elem.color.a < AlphaFadeLimit) {
-                elem.enable = false;
-                return;
-            }
+            fadeoutAlpha(elem, AlphaFadeRatio);
+            if(!elem.enable) return;
 
             // 1フレーム前からのXとYの移動量（ベクトルOldPos）
             dist = elem.pos - oldPos;
@@ -172,9 +182,6 @@ namespace Particle2D
 
             // 壁に潜り込んだ位置を、「oldからの割合」分だけ戻す
             elem.pos = oldPos + dist * TurnbackRatio;
-
-            // 「反射した」フラグ
-            elem.bounceBack = true;
         }
 
 
@@ -257,19 +264,21 @@ namespace Particle2D
         // 【メソッド】生成
         void create(int quantity)
         {
-            double size, rad, randRad, speed;
-            double sizeRandRange    = property.size * property.randPow * 0.03;
-            double radRangeFix      = property.radianRange * Half;
-            double speedRandLower   = -property.randPow * Half;
+            double size, rad, shake, range, speed;
+            double sizeRandRange  = property.size * property.randPow * 0.03;
+            double radShake       = (property.radianRange * property.randPow + property.randPow) * 0.05;
+            double radRangeHalf   = property.radianRange * Half;
+            double speedRandLower = -property.randPow * Half;
 
             for (int i = 0; i < quantity; ++i) {
                 // サイズ
                 size = property.size + Random(-sizeRandRange, sizeRandRange);
 
                 // 角度
-                randRad = Random(property.radianRange) - radRangeFix;
-                rad     = fmod(property.radian + randRad + TwoPi, TwoPi);
-                
+                shake = Random(-radShake, radShake) * Random(One) * Random(One);
+                range = Random(-radRangeHalf, radRangeHalf);
+                rad   = fmod(property.radian + range + shake + TwoPi, TwoPi);
+
                 // スピード
                 speed = property.speed + Random(speedRandLower, property.randPow);
 
@@ -288,16 +297,18 @@ namespace Particle2D
             double gravityCos   = cos(property.gravityRad);
             bool   wallsEnable  = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
             Vec2   old;
+            static const double AlphaFadeRatio  = 0.95;
 
-            for (auto &r : elements) {
+            for (auto& r : elements) {
                 // 色の変化
                 r.color += property.accelColor;  // ColorFを「+=」した場合、対象はRGBのみ
-                if (!r.bounceBack)
+                if (!r.alphaLock)
                     r.color.a += property.accelColor.a;
                 if (r.color.a <= 0.0) {
                     r.enable = false;
                     continue;
                 }
+                r.alphaLock = false;
 
                 // サイズの変化
                 r.size += property.accelSize;
@@ -317,7 +328,6 @@ namespace Particle2D
                 r.pos.y += gravitySin * r.gravity;
 
                 // 壁
-                r.bounceBack = false;
                 if (wallsEnable) {
                     if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size)) reflection(ReflectionAxis::Vertical,   r, old);
                     if ((property.wallBottom) && (r.pos.y > windowHeight - r.size)) reflection(ReflectionAxis::Horizontal, r, old);
@@ -330,6 +340,12 @@ namespace Particle2D
                     (r.pos.y <= -r.size) || (r.pos.y >= windowHeight + r.size)) {
                     r.enable = false;
                     continue;
+                }
+
+                // 動いていないなら、アルファを強制的に下げる
+                if (r.pos == old) {
+                    fadeoutAlpha(r, AlphaFadeRatio);
+                    if (!r.enable) continue;
                 }
 
                 // スピードの変化
@@ -515,8 +531,8 @@ namespace Particle2D
 
             for (int i = 0; i < quantity; ++i) {
                 // 角度
-                range = Random(-radRangeHalf, radRangeHalf);
                 shake = Random(-radShake, radShake) * Random(One) * Random(One);
+                range = Random(-radRangeHalf, radRangeHalf);
                 rad   = fmod(property.radian + range + shake + TwoPi, TwoPi);
 
                 // スピード
@@ -537,16 +553,18 @@ namespace Particle2D
             double gravityCos  = cos(property.gravityRad);
             bool   wallsEnable = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
             Vec2   old;
+            static const double AlphaFadeRatio  = 0.95;
 
             for (auto& r : elements) {
                 // 色の変化
                 r.color += property.accelColor;  // ColorFを「+=」した場合、対象はRGBのみ
-                if (!r.bounceBack)
+                if (!r.alphaLock)
                     r.color.a += property.accelColor.a;
                 if (r.color.a <= 0.0) {
                     r.enable = false;
                     continue;
                 }
+                r.alphaLock = false;
 
                 // 移動
                 old = r.pos;
@@ -559,7 +577,6 @@ namespace Particle2D
                 r.pos.y += gravitySin * r.gravity;
 
                 // 壁
-                r.bounceBack = false;
                 if (wallsEnable) {
                     if ((property.wallRight)  && (r.pos.x > imgWidth))  reflection(ReflectionAxis::Vertical,   r, old);
                     if ((property.wallBottom) && (r.pos.y > imgHeight)) reflection(ReflectionAxis::Horizontal, r, old);
@@ -574,18 +591,15 @@ namespace Particle2D
                     continue;
                 }
 
+                // 動いていないなら、アルファを強制的に下げる
                 if (r.pos == old) {
-                    // アルファを減衰
-                    r.color.a *= 0.95;
-                    if (r.color.a < 0.03) {
-                        r.enable = false;
-                    }
+                    fadeoutAlpha(r, AlphaFadeRatio);
+                    if (!r.enable) continue;
                 }
-                else {
-                    // スピードの変化
-                    r.speed += property.accelSpeed;
-                    if (r.speed < 0.0) r.speed = 0.0;
-                }
+
+                // スピードの変化
+                r.speed += property.accelSpeed;
+                if (r.speed < 0.0) r.speed = 0.0;
             }
 
             // 無効な粒子を削除
@@ -726,10 +740,11 @@ namespace Particle2D
         // 【メソッド】生成
         void create(int quantity)
         {
-            double size, rad, randRad, speed, rotateSpeed;
+            double size, rad, shake, range, speed, rotateSpeed;
             double sizeRandRange    = property.size * property.randPow * 0.03;
-            double radRangeFix      = property.radianRange * 0.5;
-            double speedRandLower   = -property.randPow * 0.5;
+            double radShake         = (property.radianRange * property.randPow + property.randPow) * 0.05;
+            double radRangeHalf     = property.radianRange * Half;
+            double speedRandLower   = -property.randPow * Half;
             double rotateSpeedRange = property.randPow * 0.002;
 
             for (int i = 0; i < quantity; ++i) {
@@ -737,9 +752,10 @@ namespace Particle2D
                 size = property.size + Random(-sizeRandRange, sizeRandRange);
 
                 // 角度
-                randRad = Random(property.radianRange) - radRangeFix;
-                rad     = fmod(property.radian + randRad + TwoPi, TwoPi);
-                
+                shake = Random(-radShake, radShake) * Random(One) * Random(One);
+                range = Random(-radRangeHalf, radRangeHalf);
+                rad   = fmod(property.radian + range + shake + TwoPi, TwoPi);
+
                 // スピード
                 speed = property.speed + Random(speedRandLower, property.randPow);
 
@@ -761,16 +777,18 @@ namespace Particle2D
             double gravityCos   = cos(property.gravityRad);
             bool   wallsEnable  = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
             Vec2   old;
+            static const double AlphaFadeRatio  = 0.95;
 
             for (auto& r : elements) {
                 // 色の変化
                 r.color += property.accelColor;  // ColorFを「+=」した場合、対象はRGBのみ
-                if (!r.bounceBack)
+                if (!r.alphaLock)
                     r.color.a += property.accelColor.a;
                 if (r.color.a <= 0.0) {
                     r.enable = false;
                     continue;
                 }
+                r.alphaLock = false;
 
                 // サイズの変化
                 r.size += property.accelSize;
@@ -790,7 +808,6 @@ namespace Particle2D
                 r.pos.y += gravitySin * r.gravity;
 
                 // 壁
-                r.bounceBack = false;
                 if (wallsEnable) {
                     if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size)) reflection(ReflectionAxis::Vertical,   r, old);
                     if ((property.wallBottom) && (r.pos.y > windowHeight - r.size)) reflection(ReflectionAxis::Horizontal, r, old);
@@ -803,6 +820,12 @@ namespace Particle2D
                     (r.pos.y <= -r.size) || (r.pos.y >= windowHeight + r.size)) {
                     r.enable = false;
                     continue;
+                }
+
+                // 動いていないなら、アルファを強制的に下げる
+                if (r.pos == old) {
+                    fadeoutAlpha(r, AlphaFadeRatio);
+                    if (!r.enable) continue;
                 }
 
                 // スピードの変化
