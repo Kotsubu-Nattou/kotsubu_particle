@@ -24,10 +24,10 @@ namespace Particle2D
 
         struct ReflectionAxis  // 反射軸の定数。向きをラジアンで表す
         {
-            static inline const double Horizontal = Pi * 0.0;  // 右に伸びる軸（水平）
-            static inline const double LowerRight = Pi * 0.5;  // 右下に伸びる軸
-            static inline const double Vertical   = Pi * 1.0;  // 下に伸びる軸（垂直）
-            static inline const double LowerLeft  = Pi * 1.5;  // 左下に伸びる軸
+            static inline const double Horizontal = Pi * 0.0  * 2.0; // 右に伸びる軸（水平）
+            static inline const double LowerRight = Pi * 0.25 * 2.0; // 右下に伸びる軸
+            static inline const double Vertical   = Pi * 0.5  * 2.0; // 下に伸びる軸（垂直）
+            static inline const double LowerLeft  = Pi * 0.75 * 2.0; // 左下に伸びる軸
         };
 
 
@@ -131,9 +131,10 @@ namespace Particle2D
         }
 
 
-        // 【メソッド】alphaを指定の割合に変更（フェードアウト用）
-        // 通常のalpha加減算処理を無効にするフラグを立てる（Element.alphaLock = true）
-        // もし、alphaが基準を下回った場合は、Element.enable = false
+        // 【メソッド】alphaを指定の割合に変更。フェードアウト用
+        // フェードアウト中に、通常のalpha加減算処理を行うとバッティングしてしまう。
+        // そのため、1フレームだけパスさせるためにフラグを立てる。Element.alphaLock = true
+        // また、alphaが下限値を下回ったら、その粒子を無効にする。Element.enable = false
         void fadeoutAlpha(Element& elem, double alphaRatio)
         {
             static const double LowerLimit  = 0.02;
@@ -146,9 +147,9 @@ namespace Particle2D
 
 
         // 【メソッド】粒子の反射
-        // ＜引数＞reflectionAxisRad --- 反射軸の「向き」をラジアンで指定
-        // 反射軸が「0 rad（  0°）」のとき、進入角が90°なら結果は270°、270°なら90°
-        // 反射軸が「π rad（180°）」のとき、進入角が 0°なら結果は180°、180°なら 0°
+        // ＜引数＞reflectionAxisRad --- 反射軸。値は「反射軸の方向rad * 2」で、範囲は0～2π
+        // 反射軸が「 0° * 2 = 0 rad」のとき、進入角が90°なら結果は270°、270°なら90°
+        // 反射軸が「90° * 2 = π rad」のとき、進入角が 0°なら結果は180°、180°なら 0°
         void reflection(double reflectionAxisRad, Element& elem, Vec2 oldPos)
         {
             Vec2 dist;
