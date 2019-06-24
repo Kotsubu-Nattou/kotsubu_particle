@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <Siv3D.hpp>
+#include "my_math.h"
 
 
 namespace Particle2D
@@ -13,28 +14,23 @@ namespace Particle2D
     class InternalWorks
     {
     protected:
+        MyMath& math = MyMath::getInstance();
+
         // 各クラスで使用する定数
         static inline const double Pi = 3.141592653589793;
         static inline const double TwoPi = Pi * 2.0;            // Radianの最大値
-        static inline const double PiDivStraight = Pi / 180.0;  // Degに掛けるとRad
-        static inline const double StraightDivPi = 180.0 / Pi;  // Radに掛けるとDeg
+        static inline const double Deg2Rad = Pi / 180.0;        // Degに掛けるとRad
+        static inline const double Rad2Deg = 180.0 / Pi;        // Radに掛けるとDeg
         static inline const double RootTwo = 1.414213562373095; // 斜辺が45°の直角三角形における、斜辺の比（他の辺は共に1）
         static inline const double One  = 1.0;                  // 1.0
         static inline const double Half = 0.5;                  // 0.5
-
-        struct ReflectionAxis  // 反射軸の定数。向きをラジアンで表す
-        {
-            static inline const double Horizontal = Pi * 0.0  * 2.0; // 右に伸びる軸（水平）
-            static inline const double LowerRight = Pi * 0.25 * 2.0; // 右下に伸びる軸
-            static inline const double Vertical   = Pi * 0.5  * 2.0; // 下に伸びる軸（垂直）
-            static inline const double LowerLeft  = Pi * 0.75 * 2.0; // 左下に伸びる軸
-        };
 
 
         // 各クラスで使用する構造体
         struct Element
         {
             Vec2   pos;
+            Vec2   oldPos;
             double radian;
             double speed;
             ColorF color;
@@ -62,16 +58,11 @@ namespace Particle2D
             double       gravityPow;
             double       gravityRad;
             BlendState   blendState;
-            bool         wallRight;
-            bool         wallBottom;
-            bool         wallLeft;
-            bool         wallTop;
             Property() :
                 randPow(3.0), radianRange(TwoPi),
                 accelSpeed(-0.1), accelColor(-0.01, -0.02, -0.03, -0.001),
                 gravityPow(0.2), gravityRad(Pi / 2.0),
-                blendState(s3d::BlendState::Additive),
-                wallRight(false), wallBottom(false), wallLeft(false), wallTop(false)
+                blendState(s3d::BlendState::Additive)
             {}
         };
 
@@ -118,7 +109,7 @@ namespace Particle2D
             else if (degree >= 360.0)
                 degree = fmod(degree, 360.0);
 
-            return degree * PiDivStraight;
+            return degree * Deg2Rad;
         }
 
 
@@ -127,14 +118,14 @@ namespace Particle2D
             if (degree <   0.0) degree = 0.0;
             if (degree > 360.0) degree = 360.0;
 
-            return degree * PiDivStraight;
+            return degree * Deg2Rad;
         }
 
 
         // 【メソッド】alphaを指定の割合に変更。フェードアウト用
         // フェードアウト中に、通常のalpha加減算処理を行うとバッティングしてしまう。
-        // そのため、1フレームだけパスさせるためにフラグを立てる。Element.alphaLock = true
-        // また、alphaが下限値を下回ったら、その粒子を無効にする。Element.enable = false
+        // そのため、1フレームだけパスさせるためにフラグを立てる（Element.alphaLock = true）
+        // また、alphaが下限値を下回ったら、その粒子を無効にする。
         void fadeoutAlpha(Element& elem, double alphaRatio)
         {
             static const double LowerLimit  = 0.02;
@@ -143,46 +134,6 @@ namespace Particle2D
             if (elem.color.a < LowerLimit)
                 elem.enable = false;
             elem.alphaLock = true;
-        }
-
-
-        // 【メソッド】粒子の反射
-        // ＜引数＞reflectionAxisRad --- 反射軸。値は「反射軸の方向rad * 2」で、範囲は0～2π
-        // 反射軸が「 0° * 2 = 0 rad」のとき、進入角が90°なら結果は270°、270°なら90°
-        // 反射軸が「90° * 2 = π rad」のとき、進入角が 0°なら結果は180°、180°なら 0°
-        void reflection(double reflectionAxisRad, Element& elem, Vec2 oldPos)
-        {
-            Vec2 dist;
-            double rad;
-            static const double AlphaFadeRatio  = 0.6;
-            static const double ReflectionRatio = 0.7;
-            static const double TurnbackRatio   = 0.3;
-
-            // アルファを減衰
-            fadeoutAlpha(elem, AlphaFadeRatio);
-            if(!elem.enable) return;
-
-            // 1フレーム前からのXとYの移動量（ベクトルOldPos）
-            dist = elem.pos - oldPos;
-
-            // ベクトルOldPosの角度を求める
-            // このプログラムの移動処理は、elem.radianとgravityRadの
-            // 「2系統」を合算して、実際の「見た目の方向」となる。
-            // よって、「見た目の方向」を反射させるためには、1系統だけを反射
-            // しても意味はなく、「実際に移動した量、および角度」を元に算出する。
-            rad = atan2(dist.y, dist.x);
-
-            // 角度を反射
-            elem.radian = fmod(reflectionAxisRad - rad, TwoPi);
-
-            // 速度を「移動距離」とし、力を減衰させる。（直前までの引力成分も含まれる）
-            elem.speed = sqrt(dist.x*dist.x + dist.y*dist.y) * ReflectionRatio;
-
-            // 引力をリセット（上でelem.speedに引力成分は引き継がれている）
-            elem.gravity = 0.0;
-
-            // 壁に潜り込んだ位置を、「oldからの割合」分だけ戻す
-            elem.pos = oldPos + dist * TurnbackRatio;
         }
 
 
@@ -197,6 +148,46 @@ namespace Particle2D
             elements.erase(dustIt, elements.end());
 
             //Print << U"elements.size: " << elements.size();
+        }
+
+
+    public:
+        // 【メソッド】粒子を反射
+        // ＜引数＞
+        // &elem              --- 対象とする粒子
+        // wallLine_startPos  --- 壁となる線分の始点座標
+        // wallLine_normalVec --- 壁となる線分の正規化ベクトル
+        // wallLine_rad       --- 壁となる線分の角度
+        void reflectionElement(Element& elem, 
+                               Vec2     wallLine_startPos,
+                               Vec2     wallLine_normalVec,
+                               double   wallLine_rad)
+        {
+            static const double AlphaFadeRatio  = 0.6;
+            static const double PowerRatio = 0.7;
+            Vec2 elemMove = elem.pos - elem.oldPos;
+
+            // アルファを減衰
+            fadeoutAlpha(elem, AlphaFadeRatio);
+            if(!elem.enable) return;
+
+            // 進行方向を反転
+            // このプログラムの移動処理は、elem.radianとgravityRadの
+            // 「2系統」を合算して、実際の「見た目の方向」となる。
+            // よって、「見た目の方向」を反射させるためには、1系統だけを反射
+            // しても意味はなく、「実際に移動した量、および角度」を元に算出する。
+            elem.radian = math.reflection(math.direction(elemMove), wallLine_rad);
+
+            // 速度を「移動距離」とし、力を減衰させる。（直前までの引力成分も含まれる）
+            elem.speed = math.length(elemMove) * PowerRatio;
+
+            // 引力をリセット（引力成分はelem.speedに引き継がれている）
+            elem.gravity = 0.0;
+
+            // 埋まった位置を修正
+            Vec2 lineStart2ElemPos = elem.pos - wallLine_startPos;
+            double overLen = abs(math.outerProduct(lineStart2ElemPos, wallLine_normalVec));
+            elem.pos -= math.normalize(elemMove) * overLen * 2.0;
         }
     };
 
@@ -259,7 +250,6 @@ namespace Particle2D
         Circle& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
         Circle& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
         Circle& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
-        Circle& walls(bool right, bool bottom, bool left, bool top) { property.wallRight = right; property.wallBottom = bottom; property.wallLeft = left; property.wallTop = top; return *this; }
 
 
         // 【メソッド】生成
@@ -296,8 +286,6 @@ namespace Particle2D
             int    windowHeight = Window::Height();
             double gravitySin   = sin(property.gravityRad);
             double gravityCos   = cos(property.gravityRad);
-            bool   wallsEnable  = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
-            Vec2   old;
             static const double AlphaFadeRatio  = 0.95;
 
             for (auto& r : elements) {
@@ -319,7 +307,7 @@ namespace Particle2D
                 }
 
                 // 移動
-                old = r.pos;
+                r.oldPos = r.pos;
                 r.pos.x += cos(r.radian) * r.speed;
                 r.pos.y += sin(r.radian) * r.speed;
 
@@ -327,14 +315,6 @@ namespace Particle2D
                 r.gravity += property.gravityPow;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
-
-                // 壁
-                if (wallsEnable) {
-                    if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size)) reflection(ReflectionAxis::Vertical,   r, old);
-                    if ((property.wallBottom) && (r.pos.y > windowHeight - r.size)) reflection(ReflectionAxis::Horizontal, r, old);
-                    if ((property.wallLeft)   && (r.pos.x < r.size))                reflection(ReflectionAxis::Vertical,   r, old);
-                    if ((property.wallTop)    && (r.pos.y < r.size))                reflection(ReflectionAxis::Horizontal, r, old);
-                }
 
                 // 画面外かどうか
                 if ((r.pos.x <= -r.size) || (r.pos.x >= windowWidth  + r.size) ||
@@ -344,7 +324,7 @@ namespace Particle2D
                 }
 
                 // 動いていないなら、アルファを強制的に下げる
-                if (r.pos == old) {
+                if (r.pos == r.oldPos) {
                     fadeoutAlpha(r, AlphaFadeRatio);
                     if (!r.enable) continue;
                 }
@@ -460,11 +440,14 @@ namespace Particle2D
 
         // 【フィールド】
         DotProperty property;
-        std::vector<Element> elements;
 
 
 
     public:
+        // 【フィールド】
+        std::vector<Element> elements;
+
+
         // 【コンストラクタ】
         Dot(size_t reserve = 10000)
         {
@@ -485,7 +468,6 @@ namespace Particle2D
         Dot& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
         Dot& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
         Dot& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
-        Dot& walls(bool right, bool bottom, bool left, bool top) { property.wallRight = right; property.wallBottom = bottom; property.wallLeft = left; property.wallTop = top; return *this; }
 
         // スムージング
         Dot& smoothing(bool isSmooth)
@@ -552,8 +534,6 @@ namespace Particle2D
             int    imgHeight   = property.blankImg.height();
             double gravitySin  = sin(property.gravityRad);
             double gravityCos  = cos(property.gravityRad);
-            bool   wallsEnable = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
-            Vec2   old;
             static const double AlphaFadeRatio  = 0.95;
 
             for (auto& r : elements) {
@@ -568,7 +548,7 @@ namespace Particle2D
                 r.alphaLock = false;
 
                 // 移動
-                old = r.pos;
+                r.oldPos = r.pos;
                 r.pos.x += cos(r.radian) * r.speed;
                 r.pos.y += sin(r.radian) * r.speed;
 
@@ -576,14 +556,6 @@ namespace Particle2D
                 r.gravity += property.gravityPow;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
-
-                // 壁
-                if (wallsEnable) {
-                    if ((property.wallRight)  && (r.pos.x > imgWidth))  reflection(ReflectionAxis::Vertical,   r, old);
-                    if ((property.wallBottom) && (r.pos.y > imgHeight)) reflection(ReflectionAxis::Horizontal, r, old);
-                    if ((property.wallLeft)   && (r.pos.x < 0.0))       reflection(ReflectionAxis::Vertical,   r, old);
-                    if ((property.wallTop)    && (r.pos.y < 0.0))       reflection(ReflectionAxis::Horizontal, r, old);
-                }
 
                 // 画面外かどうか（posはイメージ配列の添え字になるので、そのチェックも兼ねる）
                 if ((r.pos.x < 0.0) || (r.pos.x >= imgWidth) ||
@@ -593,7 +565,7 @@ namespace Particle2D
                 }
 
                 // 動いていないなら、アルファを強制的に下げる
-                if (r.pos == old) {
+                if (r.pos == r.oldPos) {
                     fadeoutAlpha(r, AlphaFadeRatio);
                     if (!r.enable) continue;
                 }
@@ -735,7 +707,6 @@ namespace Particle2D
         Star& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
         Star& rotate(      double speed)  { property.rotateSpeed = speed;                   return *this; }
         Star& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
-        Star& walls(bool right, bool bottom, bool left, bool top) { property.wallRight = right; property.wallBottom = bottom; property.wallLeft = left; property.wallTop = top; return *this; }
 
         
         // 【メソッド】生成
@@ -776,8 +747,6 @@ namespace Particle2D
             int    windowHeight = Window::Height();
             double gravitySin   = sin(property.gravityRad);
             double gravityCos   = cos(property.gravityRad);
-            bool   wallsEnable  = property.wallRight | property.wallBottom | property.wallLeft | property.wallTop;
-            Vec2   old;
             static const double AlphaFadeRatio  = 0.95;
 
             for (auto& r : elements) {
@@ -799,7 +768,7 @@ namespace Particle2D
                 }
 
                 // 移動
-                old = r.pos;
+                r.oldPos = r.pos;
                 r.pos.x += cos(r.radian) * r.speed;
                 r.pos.y += sin(r.radian) * r.speed;
 
@@ -807,14 +776,6 @@ namespace Particle2D
                 r.gravity += property.gravityPow;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
-
-                // 壁
-                if (wallsEnable) {
-                    if ((property.wallRight)  && (r.pos.x > windowWidth  - r.size)) reflection(ReflectionAxis::Vertical,   r, old);
-                    if ((property.wallBottom) && (r.pos.y > windowHeight - r.size)) reflection(ReflectionAxis::Horizontal, r, old);
-                    if ((property.wallLeft)   && (r.pos.x < r.size))                reflection(ReflectionAxis::Vertical,   r, old);
-                    if ((property.wallTop)    && (r.pos.y < r.size))                reflection(ReflectionAxis::Horizontal, r, old);
-                }
 
                 // 画面外かどうか
                 if ((r.pos.x <= -r.size) || (r.pos.x >= windowWidth  + r.size) ||
@@ -824,7 +785,7 @@ namespace Particle2D
                 }
 
                 // 動いていないなら、アルファを強制的に下げる
-                if (r.pos == old) {
+                if (r.pos == r.oldPos) {
                     fadeoutAlpha(r, AlphaFadeRatio);
                     if (!r.enable) continue;
                 }
