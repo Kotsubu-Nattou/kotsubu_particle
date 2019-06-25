@@ -126,14 +126,14 @@ namespace Particle2D
         // フェードアウト中に、通常のalpha加減算処理を行うとバッティングしてしまう。
         // そのため、1フレームだけパスさせるためにフラグを立てる（Element.alphaLock = true）
         // また、alphaが下限値を下回ったら、その粒子を無効にする。
-        void fadeoutAlpha(Element& elem, double alphaRatio)
+        void fadeoutAlpha(Element& element, double alphaRatio)
         {
             static const double LowerLimit  = 0.02;
 
-            elem.color.a *= alphaRatio;
-            if (elem.color.a < LowerLimit)
-                elem.enable = false;
-            elem.alphaLock = true;
+            element.color.a *= alphaRatio;
+            if (element.color.a < LowerLimit)
+                element.enable = false;
+            element.alphaLock = true;
         }
 
 
@@ -151,43 +151,69 @@ namespace Particle2D
         }
 
 
-    public:
-        // 【メソッド】粒子を反射
-        // ＜引数＞
-        // &elem              --- 対象とする粒子
-        // wallLine_startPos  --- 壁となる線分の始点座標
-        // wallLine_normalVec --- 壁となる線分の正規化ベクトル
-        // wallLine_rad       --- 壁となる線分の角度
-        void reflectionElement(Element& elem, 
-                               Vec2     wallLine_startPos,
-                               Vec2     wallLine_normalVec,
-                               double   wallLine_rad)
+        // 【メソッド】衝突判定（粒子と線分）
+        template<typename T>
+        void collisionElements_line(T& elements, Vec2 lineStartPos, Vec2 lineEndPos)
         {
-            static const double AlphaFadeRatio  = 0.6;
-            static const double PowerRatio = 0.7;
-            Vec2 elemMove = elem.pos - elem.oldPos;
+            static const double AlphaFadeRatio = 1.0; // 0.6;
 
-            // アルファを減衰
-            fadeoutAlpha(elem, AlphaFadeRatio);
-            if(!elem.enable) return;
+            // 線分の要素
+            Vec2   lineVec    = lineEndPos - lineStartPos;
+            Vec2   lineNormal = math.normalize(lineVec);
+            double lineRad    = math.direction(lineVec);
+
+            // 当たり判定
+            for (auto& r : elements) {
+                if (math.isHit_lineLine(lineStartPos, lineEndPos, r.oldPos, r.pos)) {
+                    fadeoutAlpha(r, AlphaFadeRatio);
+                    if (r.enable) {
+                        reverseDirection(r, lineRad);
+                        fixOverrunPos(r, lineStartPos, lineNormal);
+                    }
+                }
+            }
+
+            // 無効な粒子を削除
+            //cleanElements(elements);  // updateに任せる
+        }
+
+
+        // 【メソッド】粒子の進行方向を反転（位置修正なし）
+        // ＜引数＞
+        // &element          --- 対象とする粒子
+        // reflectionAxisRad --- 反射軸の角度
+        void reverseDirection(Element& element, double reflectionAxisRad)
+        {
+            static const double PowerRatio = 0.7;
+            Vec2 move = element.pos - element.oldPos;
 
             // 進行方向を反転
-            // このプログラムの移動処理は、elem.radianとgravityRadの
+            // このプログラムの移動処理は、element.radianとgravityRadの
             // 「2系統」を合算して、実際の「見た目の方向」となる。
             // よって、「見た目の方向」を反射させるためには、1系統だけを反射
             // しても意味はなく、「実際に移動した量、および角度」を元に算出する。
-            elem.radian = math.reflection(math.direction(elemMove), wallLine_rad);
+            element.radian = math.reflection(math.direction(move), reflectionAxisRad);
 
             // 速度を「移動距離」とし、力を減衰させる。（直前までの引力成分も含まれる）
-            elem.speed = math.length(elemMove) * PowerRatio;
+            element.speed = math.length(move) * PowerRatio;
 
-            // 引力をリセット（引力成分はelem.speedに引き継がれている）
-            elem.gravity = 0.0;
+            // 引力をリセット（引力成分はelement.speedに引き継がれている）
+            element.gravity = 0.0;
+        }
 
-            // 埋まった位置を修正
-            Vec2 lineStart2ElemPos = elem.pos - wallLine_startPos;
-            double overLen = abs(math.outerProduct(lineStart2ElemPos, wallLine_normalVec));
-            elem.pos -= math.normalize(elemMove) * overLen * 2.0;
+
+        // 【メソッド】衝突対象を通り過ぎた位置を修正（厳密なため高負荷）
+        // ＜引数＞
+        // &element     --- 対象とする粒子
+        // lineStartPos --- 衝突対象（線分）の始点
+        // lineNormal   --- 衝突対象（線分）の正規化ベクトル
+        void fixOverrunPos(Element& element, Vec2 lineStartPos, Vec2 lineNormal)
+        {
+            Vec2 normal = math.normalize(element.pos - element.oldPos);
+            Vec2 hypot  = element.pos - lineStartPos;
+            double len  = abs(math.outerProduct(hypot, lineNormal));
+
+            element.pos -= normal * len * 2.0;
         }
     };
 
@@ -336,6 +362,16 @@ namespace Particle2D
 
             // 無効な粒子を削除
             cleanElements(elements);
+        }
+
+
+        // 【メソッド】衝突判定（粒子と線分）
+        // ＜引数＞
+        // lineStartPos --- 障害物となる線分の始点
+        // lineEndPos   --- 障害物となる線分の終点
+        void collision_line(Vec2 lineStartPos, Vec2 lineEndPos)
+        {
+            collisionElements_line(elements, lineStartPos, lineEndPos);
         }
 
 
@@ -580,6 +616,16 @@ namespace Particle2D
         }
 
 
+        // 【メソッド】衝突判定（粒子と線分）
+        // ＜引数＞
+        // lineStartPos --- 障害物となる線分の始点
+        // lineEndPos   --- 障害物となる線分の終点
+        void collision_line(Vec2 lineStartPos, Vec2 lineEndPos)
+        {
+            collisionElements_line(elements, lineStartPos, lineEndPos);
+        }
+
+
         // 【メソッド】ドロー
         void draw()
         {
@@ -802,6 +848,16 @@ namespace Particle2D
 
             // 無効な粒子を削除
             cleanElements(elements);
+        }
+
+
+        // 【メソッド】衝突判定（粒子と線分）
+        // ＜引数＞
+        // lineStartPos --- 障害物となる線分の始点
+        // lineEndPos   --- 障害物となる線分の終点
+        void collision_line(Vec2 lineStartPos, Vec2 lineEndPos)
+        {
+            collisionElements_line(elements, lineStartPos, lineEndPos);
         }
 
 
