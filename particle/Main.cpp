@@ -4,6 +4,7 @@
 //
 /////////////////////////////////////////////////////////////////////////////////////
 
+#include <vector>
 #include "Particle.h"  // ヘッダをインクルードするだけで使用可能
 
 
@@ -45,16 +46,16 @@ void Main()
         dot.pos(Window::Center() + Point(200, -150)).speed(1).color(ColorF(0.0, 0.4, 1.0, 1.0));
         dot.create(3);
 
-        // パーティクルをアップデート（移動や色の経過処理を行う）
-        dot.update();
-        smoke.update();
-        neko.update();
-
-        // 接地判定
+        // 障害物を登録
         Vec2 line1start(90, 120), line1end(180, 80);   // 障害物（線分）その1
         Vec2 line2start(40, 160), line2end(240, 180);  // 障害物（線分）その2
         dot.collision_line(line1start, line1end);
         dot.collision_line(line2start, line2end);
+
+        // パーティクルをアップデート（移動や色の経過処理を行う）
+        dot.update();
+        smoke.update();
+        neko.update();
 
         // 背景とパーティクルをドロー
         Rect(Window::Center() + Point(-200, -200), 250).draw(Palette::Brown);

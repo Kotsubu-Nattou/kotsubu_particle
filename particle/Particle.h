@@ -67,6 +67,16 @@ namespace Particle2D
         };
 
 
+        // 【フィールド】衝突判定用
+        struct Line
+        {
+            Vec2 startPos, endPos;
+            Line(Vec2 lineStartPos, Vec2 lineEndPos) : startPos(lineStartPos), endPos(lineEndPos)
+            {}
+        };
+        std::vector<Line> collisionLines;
+
+
         // 【隠しコンストラクタ】
         InternalWorks()
         {}
@@ -153,28 +163,25 @@ namespace Particle2D
 
         // 【メソッド】衝突判定（粒子と線分）
         template<typename T>
-        void collisionElements_line(T& elements, Vec2 lineStartPos, Vec2 lineEndPos)
+        void collisionElements_line(T& elements, Line line)
         {
             static const double AlphaFadeRatio = 1.0; // 0.6;
 
             // 線分の要素
-            Vec2   lineVec    = lineEndPos - lineStartPos;
+            Vec2   lineVec    = line.endPos - line.startPos;
             Vec2   lineNormal = math.normalize(lineVec);
             double lineRad    = math.direction(lineVec);
 
             // 当たり判定
             for (auto& r : elements) {
-                if (math.isHit_lineLine(lineStartPos, lineEndPos, r.oldPos, r.pos)) {
+                if (math.isHit_lineLine(line.startPos, line.endPos, r.oldPos, r.pos)) {
                     fadeoutAlpha(r, AlphaFadeRatio);
                     if (r.enable) {
                         reverseDirection(r, lineRad);
-                        fixOverrunPos(r, lineStartPos, lineNormal);
+                        fixCollisionOverrun(r, line.startPos, lineNormal);
                     }
                 }
             }
-
-            // 無効な粒子を削除
-            //cleanElements(elements);  // updateに任せる
         }
 
 
@@ -207,7 +214,7 @@ namespace Particle2D
         // &element     --- 対象とする粒子
         // lineStartPos --- 衝突対象（線分）の始点
         // lineNormal   --- 衝突対象（線分）の正規化ベクトル
-        void fixOverrunPos(Element& element, Vec2 lineStartPos, Vec2 lineNormal)
+        void fixCollisionOverrun(Element& element, Vec2 lineStartPos, Vec2 lineNormal)
         {
             Vec2 normal = math.normalize(element.pos - element.oldPos);
             Vec2 hypot  = element.pos - lineStartPos;
@@ -360,6 +367,11 @@ namespace Particle2D
                 if (r.speed < 0.0) r.speed = 0.0;
             }
 
+            // 衝突判定
+            for (auto& r : collisionLines)
+                collisionElements_line(elements, r);
+            collisionLines.clear();  // 障害物をクリア
+
             // 無効な粒子を削除
             cleanElements(elements);
         }
@@ -371,7 +383,7 @@ namespace Particle2D
         // lineEndPos   --- 障害物となる線分の終点
         void collision_line(Vec2 lineStartPos, Vec2 lineEndPos)
         {
-            collisionElements_line(elements, lineStartPos, lineEndPos);
+            collisionLines.emplace_back(Line(lineStartPos, lineEndPos));
         }
 
 
@@ -611,6 +623,11 @@ namespace Particle2D
                 if (r.speed < 0.0) r.speed = 0.0;
             }
 
+            // 衝突判定
+            for (auto& r : collisionLines)
+                collisionElements_line(elements, r);
+            collisionLines.clear();  // 障害物をクリア
+
             // 無効な粒子を削除
             cleanElements(elements);
         }
@@ -622,7 +639,7 @@ namespace Particle2D
         // lineEndPos   --- 障害物となる線分の終点
         void collision_line(Vec2 lineStartPos, Vec2 lineEndPos)
         {
-            collisionElements_line(elements, lineStartPos, lineEndPos);
+            collisionLines.emplace_back(Line(lineStartPos, lineEndPos));
         }
 
 
@@ -846,7 +863,12 @@ namespace Particle2D
                     r.rotateRad = fmod(r.rotateRad, TwoPi);
             }
 
-            // 無効な粒子を削除
+            // 衝突判定
+            for (auto& r : collisionLines)
+                collisionElements_line(elements, r);
+            collisionLines.clear();  // 障害物をクリア
+
+                                     // 無効な粒子を削除
             cleanElements(elements);
         }
 
@@ -857,7 +879,7 @@ namespace Particle2D
         // lineEndPos   --- 障害物となる線分の終点
         void collision_line(Vec2 lineStartPos, Vec2 lineEndPos)
         {
-            collisionElements_line(elements, lineStartPos, lineEndPos);
+            collisionLines.emplace_back(Line(lineStartPos, lineEndPos));
         }
 
 
