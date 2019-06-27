@@ -9,9 +9,9 @@
 namespace Particle2D
 {
     /////////////////////////////////////////////////////////////////////////////////////
-    // 【基底クラス】すべてのパーティクルの元となる、内部で使用するメンバなど。単独利用不可
+    // 【基底クラス】すべてのパーティクルの元となるクラス。単独利用不可
     //
-    class InternalWorks
+    class Works
     {
     protected:
         MyMath& math = MyMath::getInstance();
@@ -24,6 +24,8 @@ namespace Particle2D
         static inline const double RootTwo = 1.414213562373095; // 斜辺が45°の直角三角形における、斜辺の比（他の辺は共に1）
         static inline const double One  = 1.0;                  // 1.0
         static inline const double Half = 0.5;                  // 0.5
+        static inline const double MovingEpsilonPow = 0.01;     // これ未満の移動量^2を停止とする
+        static inline const double Fps60            = 1.0 / 60; // 60FPSのときの1フレームの秒数
 
 
         // 各クラスで使用する構造体
@@ -74,11 +76,11 @@ namespace Particle2D
             Line(Vec2 lineStartPos, Vec2 lineEndPos) : startPos(lineStartPos), endPos(lineEndPos)
             {}
         };
-        std::vector<Line> collisionLines;
+        std::vector<Line> obstacleLines;
 
 
         // 【隠しコンストラクタ】
-        InternalWorks()
+        Works()
         {}
 
 
@@ -163,9 +165,9 @@ namespace Particle2D
 
         // 【メソッド】衝突判定（粒子と線分）
         template<typename T>
-        void collisionElements_line(T& elements, Line line)
+        void collisionLine(T& elements, Line line)
         {
-            static const double AlphaFadeRatio = 1.0; // 0.6;
+            static const double AlphaFadeRatio = 0.7;
 
             // 線分の要素
             Vec2   lineVec    = line.endPos - line.startPos;
@@ -209,7 +211,7 @@ namespace Particle2D
         }
 
 
-        // 【メソッド】衝突対象を通り過ぎた位置を修正（厳密なため高負荷）
+        // 【メソッド】衝突対象を通り過ぎた位置を修正（厳密。負荷高め）
         // ＜引数＞
         // &element     --- 対象とする粒子
         // lineStartPos --- 衝突対象（線分）の始点
@@ -222,6 +224,19 @@ namespace Particle2D
 
             element.pos -= normal * len * 2.0;
         }
+
+
+
+    public:
+        // 【メソッド】衝突判定の図形を登録（線分）
+        // 順次登録可能。次回update時に反映＆すべて破棄
+        // ＜引数＞
+        // lineStartPos --- 線分の始点
+        // lineEndPos   --- 線分の終点
+        void registObstacleLine(Vec2 lineStartPos, Vec2 lineEndPos)
+        {
+            obstacleLines.emplace_back(Line(lineStartPos, lineEndPos));
+        }
     };
 
 
@@ -232,7 +247,7 @@ namespace Particle2D
     // 【メインクラス】円形のパーティクル
     // 円系パーティクルの元となるクラス。他の円系パーティクルはこれを拡張（継承）したもの
     //
-    class Circle : public InternalWorks
+    class Circle : public Works
     {
     protected:
         // クラス内部で使用する構造体
@@ -313,8 +328,9 @@ namespace Particle2D
 
 
         // 【メソッド】アップデート
-        void update()
+        void update(double deltaTimeSec = Fps60)
         {
+            double timeScale    = deltaTimeSec / Fps60;
             int    windowWidth  = Window::Width();
             int    windowHeight = Window::Height();
             double gravitySin   = sin(property.gravityRad);
@@ -323,9 +339,9 @@ namespace Particle2D
 
             for (auto& r : elements) {
                 // 色の変化
-                r.color += property.accelColor;  // ColorFを「+=」した場合、対象はRGBのみ
+                r.color += property.accelColor * timeScale;  // ColorFを「+=」した場合、対象はRGBのみ
                 if (!r.alphaLock)
-                    r.color.a += property.accelColor.a;
+                    r.color.a += property.accelColor.a * timeScale;
                 if (r.color.a <= 0.0) {
                     r.enable = false;
                     continue;
@@ -333,7 +349,7 @@ namespace Particle2D
                 r.alphaLock = false;
 
                 // サイズの変化
-                r.size += property.accelSize;
+                r.size += property.accelSize * timeScale;
                 if (r.size <= 0.0) {
                     r.enable = false;
                     continue;
@@ -341,11 +357,11 @@ namespace Particle2D
 
                 // 移動
                 r.oldPos = r.pos;
-                r.pos.x += cos(r.radian) * r.speed;
-                r.pos.y += sin(r.radian) * r.speed;
+                r.pos.x += cos(r.radian) * r.speed * timeScale;
+                r.pos.y += sin(r.radian) * r.speed * timeScale;
 
                 // 引力
-                r.gravity += property.gravityPow;
+                r.gravity += property.gravityPow * timeScale;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
@@ -357,33 +373,23 @@ namespace Particle2D
                 }
 
                 // 動いていないなら、アルファを強制的に下げる
-                if (r.pos == r.oldPos) {
-                    fadeoutAlpha(r, AlphaFadeRatio);
-                    if (!r.enable) continue;
-                }
+                //if (math.lengthPow(r.pos - r.oldPos) < MovingEpsilonPow) {
+                //    fadeoutAlpha(r, AlphaFadeRatio);
+                //    if (!r.enable) continue;
+                //}
 
                 // スピードの変化
-                r.speed += property.accelSpeed;
+                r.speed += property.accelSpeed * timeScale;
                 if (r.speed < 0.0) r.speed = 0.0;
             }
 
             // 衝突判定
-            for (auto& r : collisionLines)
-                collisionElements_line(elements, r);
-            collisionLines.clear();  // 障害物をクリア
+            for (auto& r : obstacleLines)
+                collisionLine(elements, r);
+            obstacleLines.clear();  // 障害物をクリア
 
             // 無効な粒子を削除
             cleanElements(elements);
-        }
-
-
-        // 【メソッド】衝突判定（粒子と線分）
-        // ＜引数＞
-        // lineStartPos --- 障害物となる線分の始点
-        // lineEndPos   --- 障害物となる線分の終点
-        void collision_line(Vec2 lineStartPos, Vec2 lineEndPos)
-        {
-            collisionLines.emplace_back(Line(lineStartPos, lineEndPos));
         }
 
 
@@ -470,7 +476,7 @@ namespace Particle2D
     // resolutionメソッドで 1.0～8.0 が指定でき、高いほど粗くなる代わりに負荷を軽減できる。
     // ※この仕組みは、図形の描画が重く、ブレンディングも効かないため「点系」のみ
     //
-    class Dot : public InternalWorks
+    class Dot : public Works
     {
     protected:
         // クラス内部で使用する構造体
@@ -576,8 +582,9 @@ namespace Particle2D
 
 
         // 【メソッド】アップデート
-        void update()
+        void update(double deltaTimeSec = Fps60)
         {
+            double timeScale   = deltaTimeSec / Fps60;
             int    imgWidth    = property.blankImg.width();
             int    imgHeight   = property.blankImg.height();
             double gravitySin  = sin(property.gravityRad);
@@ -586,9 +593,9 @@ namespace Particle2D
 
             for (auto& r : elements) {
                 // 色の変化
-                r.color += property.accelColor;  // ColorFを「+=」した場合、対象はRGBのみ
+                r.color += property.accelColor * timeScale;  // ColorFを「+=」した場合、対象はRGBのみ
                 if (!r.alphaLock)
-                    r.color.a += property.accelColor.a;
+                    r.color.a += property.accelColor.a * timeScale;
                 if (r.color.a <= 0.0) {
                     r.enable = false;
                     continue;
@@ -597,11 +604,11 @@ namespace Particle2D
 
                 // 移動
                 r.oldPos = r.pos;
-                r.pos.x += cos(r.radian) * r.speed;
-                r.pos.y += sin(r.radian) * r.speed;
+                r.pos.x += cos(r.radian) * r.speed * timeScale;
+                r.pos.y += sin(r.radian) * r.speed * timeScale;
 
                 // 引力
-                r.gravity += property.gravityPow;
+                r.gravity += property.gravityPow * timeScale;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
@@ -613,33 +620,23 @@ namespace Particle2D
                 }
 
                 // 動いていないなら、アルファを強制的に下げる
-                if (r.pos == r.oldPos) {
-                    fadeoutAlpha(r, AlphaFadeRatio);
-                    if (!r.enable) continue;
-                }
+                //if (math.lengthPow(r.pos - r.oldPos) < MovingEpsilonPow) {
+                //    fadeoutAlpha(r, AlphaFadeRatio);
+                //    if (!r.enable) continue;
+                //}
 
                 // スピードの変化
-                r.speed += property.accelSpeed;
+                r.speed += property.accelSpeed * timeScale;
                 if (r.speed < 0.0) r.speed = 0.0;
             }
 
             // 衝突判定
-            for (auto& r : collisionLines)
-                collisionElements_line(elements, r);
-            collisionLines.clear();  // 障害物をクリア
+            for (auto& r : obstacleLines)
+                collisionLine(elements, r);
+            obstacleLines.clear();  // 障害物をクリア
 
             // 無効な粒子を削除
             cleanElements(elements);
-        }
-
-
-        // 【メソッド】衝突判定（粒子と線分）
-        // ＜引数＞
-        // lineStartPos --- 障害物となる線分の始点
-        // lineEndPos   --- 障害物となる線分の終点
-        void collision_line(Vec2 lineStartPos, Vec2 lineEndPos)
-        {
-            collisionLines.emplace_back(Line(lineStartPos, lineEndPos));
         }
 
 
@@ -713,7 +710,7 @@ namespace Particle2D
     // 【メインクラス】星のパーティクル
     // n角形やテクスチャパーティクルの元となるクラス
     //
-    class Star : public InternalWorks
+    class Star : public Works
     {
     protected:
         // クラス内部で使用する構造体
@@ -804,8 +801,9 @@ namespace Particle2D
 
 
         // 【メソッド】アップデート
-        void update()
+        void update(double deltaTimeSec = Fps60)
         {
+            double timeScale    = deltaTimeSec / Fps60;
             int    windowWidth  = Window::Width();
             int    windowHeight = Window::Height();
             double gravitySin   = sin(property.gravityRad);
@@ -814,9 +812,9 @@ namespace Particle2D
 
             for (auto& r : elements) {
                 // 色の変化
-                r.color += property.accelColor;  // ColorFを「+=」した場合、対象はRGBのみ
+                r.color += property.accelColor * timeScale;  // ColorFを「+=」した場合、対象はRGBのみ
                 if (!r.alphaLock)
-                    r.color.a += property.accelColor.a;
+                    r.color.a += property.accelColor.a * timeScale;
                 if (r.color.a <= 0.0) {
                     r.enable = false;
                     continue;
@@ -824,7 +822,7 @@ namespace Particle2D
                 r.alphaLock = false;
 
                 // サイズの変化
-                r.size += property.accelSize;
+                r.size += property.accelSize * timeScale;
                 if (r.size <= 0.0) {
                     r.enable = false;
                     continue;
@@ -832,11 +830,11 @@ namespace Particle2D
 
                 // 移動
                 r.oldPos = r.pos;
-                r.pos.x += cos(r.radian) * r.speed;
-                r.pos.y += sin(r.radian) * r.speed;
+                r.pos.x += cos(r.radian) * r.speed * timeScale;
+                r.pos.y += sin(r.radian) * r.speed * timeScale;
 
                 // 引力
-                r.gravity += property.gravityPow;
+                r.gravity += property.gravityPow * timeScale;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
@@ -848,38 +846,28 @@ namespace Particle2D
                 }
 
                 // 動いていないなら、アルファを強制的に下げる
-                if (r.pos == r.oldPos) {
-                    fadeoutAlpha(r, AlphaFadeRatio);
-                    if (!r.enable) continue;
-                }
+                //if (math.lengthPow(r.pos - r.oldPos) < MovingEpsilonPow) {
+                //    fadeoutAlpha(r, AlphaFadeRatio);
+                //    if (!r.enable) continue;
+                //}
 
                 // スピードの変化
-                r.speed += property.accelSpeed;
+                r.speed += property.accelSpeed * timeScale;
                 if (r.speed < 0.0) r.speed = 0.0;
 
                 // 回転
-                r.rotateRad += r.rotateSpeed;
+                r.rotateRad += r.rotateSpeed * timeScale;
                 if ((r.rotateRad < 0.0) || (r.rotateRad >= TwoPi))
                     r.rotateRad = fmod(r.rotateRad, TwoPi);
             }
 
             // 衝突判定
-            for (auto& r : collisionLines)
-                collisionElements_line(elements, r);
-            collisionLines.clear();  // 障害物をクリア
+            for (auto& r : obstacleLines)
+                collisionLine(elements, r);
+            obstacleLines.clear();  // 障害物をクリア
 
                                      // 無効な粒子を削除
             cleanElements(elements);
-        }
-
-
-        // 【メソッド】衝突判定（粒子と線分）
-        // ＜引数＞
-        // lineStartPos --- 障害物となる線分の始点
-        // lineEndPos   --- 障害物となる線分の終点
-        void collision_line(Vec2 lineStartPos, Vec2 lineEndPos)
-        {
-            collisionLines.emplace_back(Line(lineStartPos, lineEndPos));
         }
 
 

@@ -44,7 +44,7 @@ class MyMath {
 
 public:
     // 【定数】数学用の定数
-    static constexpr double Epsilon    = 0.00001;           // これ未満を0とする値
+    static constexpr double Epsilon    = 0.00001;           // これ未満を0とする
     static constexpr double Pi         = 3.141592653589793; // π
     static constexpr double TwoPi      = Pi * 2.0;          // Radianの最大値
     static constexpr double RightAngle = Pi / 2.0;          // 直角（90°）のRadian

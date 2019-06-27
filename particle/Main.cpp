@@ -16,7 +16,7 @@ void Main()
     Particle2D::Texture     neko;
     neko.setTexture(s3d::Texture(Emoji(U"🐈"), TextureDesc::Mipped));  // テクスチャは先に設定する
 
-
+    
     while (System::Update()) {
         if (MouseL.down()) {
             // 猫のパーティクルを発生させる
@@ -48,13 +48,13 @@ void Main()
         // 障害物を登録
         Vec2 line1start(90, 120), line1end(180, 80);   // 障害物（線分）その1
         Vec2 line2start(40, 160), line2end(240, 180);  // 障害物（線分）その2
-        dot.collision_line(line1start, line1end);
-        dot.collision_line(line2start, line2end);
+        dot.registObstacleLine(line1start, line1end);
+        dot.registObstacleLine(line2start, line2end);
 
         // パーティクルをアップデート（移動や色の経過処理を行う）
-        dot.update();
-        smoke.update();
-        neko.update();
+        dot.update(System::DeltaTime());
+        smoke.update(System::DeltaTime());
+        neko.update(System::DeltaTime());
 
         // 背景とパーティクルをドロー
         Rect(Window::Center() + Point(-200, -200), 250).draw(Palette::Brown);
