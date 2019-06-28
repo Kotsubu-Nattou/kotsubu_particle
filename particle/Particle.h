@@ -26,6 +26,9 @@ namespace Particle2D
         static inline const double Half = 0.5;                  // 0.5
         static inline const double MovingEpsilonPow = 0.01;     // これ未満の移動量^2を停止とする
         static inline const double Fps60            = 1.0 / 60; // 60FPSのときの1フレームの秒数
+        static inline const double PowerRatio       = 0.8;
+        static inline const double AlphaFadeRatio   = 0.8;
+
 
 
         // 各クラスで使用する構造体
@@ -69,14 +72,23 @@ namespace Particle2D
         };
 
 
-        // 【フィールド】衝突判定用
+        // 衝突判定で使用する構造体＆フィールド
         struct Line
         {
             Vec2 startPos, endPos;
-            Line(Vec2 lineStartPos, Vec2 lineEndPos) : startPos(lineStartPos), endPos(lineEndPos)
+            Line(Vec2 startPos, Vec2 endPos) : startPos(startPos), endPos(endPos)
             {}
         };
+
+        struct Rect
+        {
+            double left, top, right, bottom;
+            Rect(double left, double top, double right, double bottom) : left(left), top(top), right(right), bottom(bottom)
+            {}
+        };
+
         std::vector<Line> obstacleLines;
+        std::vector<Rect> obstacleRects;
 
 
         // 【隠しコンストラクタ】
@@ -134,6 +146,13 @@ namespace Particle2D
         }
 
 
+        // 【メソッド】解像度を、座標スケールに変換
+        double convReso2Scale(double resolution)
+        {
+            return 1.0 / resolution;
+        }
+
+
         // 【メソッド】alphaを指定の割合に変更。フェードアウト用
         // フェードアウト中に、通常のalpha加減算処理を行うとバッティングしてしまう。
         // そのため、1フレームだけパスさせるためにフラグを立てる（Element.alphaLock = true）
@@ -163,12 +182,48 @@ namespace Particle2D
         }
 
 
-        // 【メソッド】衝突判定（粒子と線分）
-        template<typename T>
-        void collisionLine(T& elements, Line line)
+        // 【メソッド】障害物をスケーリング
+        void scalingObstacles(double scale)
         {
-            static const double AlphaFadeRatio = 0.7;
+            // 等倍で無いならスケーリング
+            if (scale != 1.0) {
+                for (auto& r : obstacleLines) {
+                    r.startPos *= scale;
+                    r.endPos   *= scale;
+                }
+                for (auto& r : obstacleRects) {
+                    r.left   *= scale;
+                    r.top    *= scale;
+                    r.right  *= scale;
+                    r.bottom *= scale;
+                }
+            }
+        }
 
+
+        // 【メソッド】すべての衝突判定を行う（障害物は破棄）
+        template<typename T>
+        void collision(T& elements, double deltaTimeSec)
+        {
+            double timeScale = Fps60 / deltaTimeSec;
+
+            // 各衝突判定
+            for (auto& r : obstacleLines)
+                collisionLine(elements, r, timeScale);
+
+            for (auto& r : obstacleRects)
+                collisionRect(elements, r, timeScale);
+
+            // 各障害物をクリア
+            obstacleLines.clear();
+            obstacleRects.clear();
+        }
+
+
+        // 【メソッド】全粒子と線分の衝突判定
+        template<typename T>
+        void collisionLine(T& elements, Line line, double timeScale)
+        {
             // 線分の要素
             Vec2   lineVec    = line.endPos - line.startPos;
             Vec2   lineNormal = math.normalize(lineVec);
@@ -176,11 +231,34 @@ namespace Particle2D
 
             // 当たり判定
             for (auto& r : elements) {
-                if (math.isHit_lineLine(line.startPos, line.endPos, r.oldPos, r.pos)) {
+                if (math.isHit_lineVsLine(line.startPos, line.endPos, r.oldPos, r.pos)) {
                     fadeoutAlpha(r, AlphaFadeRatio);
                     if (r.enable) {
-                        reverseDirection(r, lineRad);
+                        reverseDirection(r, lineRad, timeScale);
                         fixCollisionOverrun(r, line.startPos, lineNormal);
+                    }
+                }
+            }
+        }
+
+
+        // 【メソッド】全粒子と矩形の衝突判定
+        template<typename T>
+        void collisionRect(T& elements, Rect rect, double timeScale)
+        {
+            // 当たり判定
+            for (auto& r : elements) {
+                if (math.isHit_pointVsBox(r.pos, rect.left, rect.top, rect.right, rect.bottom)) {
+                    fadeoutAlpha(r, AlphaFadeRatio);
+                    if (r.enable) {
+                        if (math.isHit_lineVsHorizontal(r.oldPos.y, r.pos.y, rect.top) ||
+                            math.isHit_lineVsHorizontal(r.oldPos.y, r.pos.y, rect.bottom)) {
+                            reverseDirection(r, 0.0, timeScale);
+                        }
+                        else {
+                            reverseDirection(r, math.RightAngle, timeScale);
+                        }
+                        r.pos = r.oldPos;
                     }
                 }
             }
@@ -189,11 +267,9 @@ namespace Particle2D
 
         // 【メソッド】粒子の進行方向を反転（位置修正なし）
         // ＜引数＞
-        // &element          --- 対象とする粒子
         // reflectionAxisRad --- 反射軸の角度
-        void reverseDirection(Element& element, double reflectionAxisRad)
+        void reverseDirection(Element& element, double reflectionAxisRad, double timeScale)
         {
-            static const double PowerRatio = 0.7;
             Vec2 move = element.pos - element.oldPos;
 
             // 進行方向を反転
@@ -204,18 +280,17 @@ namespace Particle2D
             element.radian = math.reflection(math.direction(move), reflectionAxisRad);
 
             // 速度を「移動距離」とし、力を減衰させる。（直前までの引力成分も含まれる）
-            element.speed = math.length(move) * PowerRatio;
+            element.speed = math.length(move) * timeScale * PowerRatio;
 
             // 引力をリセット（引力成分はelement.speedに引き継がれている）
             element.gravity = 0.0;
         }
 
 
-        // 【メソッド】衝突対象を通り過ぎた位置を修正（厳密。負荷高め）
+        // 【メソッド】衝突面を通り過ぎた粒子位置を修正（厳密。負荷高め）
         // ＜引数＞
-        // &element     --- 対象とする粒子
-        // lineStartPos --- 衝突対象（線分）の始点
-        // lineNormal   --- 衝突対象（線分）の正規化ベクトル
+        // lineStartPos --- 衝突面（線分）の始点
+        // lineNormal   --- 衝突面（線分）の正規化ベクトル
         void fixCollisionOverrun(Element& element, Vec2 lineStartPos, Vec2 lineNormal)
         {
             Vec2 normal = math.normalize(element.pos - element.oldPos);
@@ -226,16 +301,31 @@ namespace Particle2D
         }
 
 
+        // 【メソッド】衝突面を通り過ぎた粒子位置を修正（軽量版）
+        // 次の移動時に衝突ループさせない最低限の修正のため、潜り込みは発生する。
+        // もっと軽量、かつ潜り込まないようにするには、単純に pos = oldPos とすればよい
+        void fixCollisionOverrunLite(Element& element)
+        {
+            Vec2 v(element.pos - element.oldPos);
+            element.pos = element.oldPos + v * PowerRatio;
+        }
+
+
 
     public:
         // 【メソッド】衝突判定の図形を登録（線分）
         // 順次登録可能。次回update時に反映＆すべて破棄
-        // ＜引数＞
-        // lineStartPos --- 線分の始点
-        // lineEndPos   --- 線分の終点
         void registObstacleLine(Vec2 lineStartPos, Vec2 lineEndPos)
         {
             obstacleLines.emplace_back(Line(lineStartPos, lineEndPos));
+        }
+
+
+        // 【メソッド】衝突判定の図形を登録（四角形）
+        // 順次登録可能。次回update時に反映＆すべて破棄
+        void registObstacleRect(double left, double top, double right, double bottom)
+        {
+            obstacleRects.emplace_back(Rect(left, top, right, bottom));
         }
     };
 
@@ -335,7 +425,6 @@ namespace Particle2D
             int    windowHeight = Window::Height();
             double gravitySin   = sin(property.gravityRad);
             double gravityCos   = cos(property.gravityRad);
-            static const double AlphaFadeRatio  = 0.95;
 
             for (auto& r : elements) {
                 // 色の変化
@@ -384,9 +473,7 @@ namespace Particle2D
             }
 
             // 衝突判定
-            for (auto& r : obstacleLines)
-                collisionLine(elements, r);
-            obstacleLines.clear();  // 障害物をクリア
+            collision(elements, deltaTimeSec);
 
             // 無効な粒子を削除
             cleanElements(elements);
@@ -532,25 +619,25 @@ namespace Particle2D
         }
 
         // 解像度 1.0（等倍） ～ 8.0
-        Dot& resolution(double scale)
+        Dot& resolution(double res)
         {
-            static double oldScale = -1;
+            static double oldRes = -1;
+            if (res < 1.0) res = 1.0;
+            if (res > 8.0) res = 8.0;
 
-            if (scale < 1.0) scale = 1.0;
-            if (scale > 8.0) scale = 8.0;
-
-            if (scale != oldScale) {
-                property.resolution = scale;
+            if (res != oldRes) {
+                property.resolution = res;
 
                 // 新しいサイズのブランクイメージを作る
-                property.blankImg = s3d::Image(static_cast<int>(Window::Width()  / property.resolution),
-                                               static_cast<int>(Window::Height() / property.resolution));
+                double scale = convReso2Scale(res);
+                property.blankImg = s3d::Image(static_cast<int>(Window::Width()  * scale),
+                                               static_cast<int>(Window::Height() * scale));
 
                 // 動的テクスチャは「同じサイズ」のイメージを供給しないと描画されないためリセット。
                 // また、テクスチャやイメージのreleaseやclearは、連続で呼び出すとエラーする
                 property.tex.release();
 
-                oldScale = property.resolution;
+                oldRes = res;
             }
 
             return *this;
@@ -564,7 +651,7 @@ namespace Particle2D
             double radShake       = (property.radianRange * property.randPow + property.randPow) * 0.05;
             double radRangeHalf   = property.radianRange * Half;
             double speedRandLower = -property.randPow * Half;
-            Vec2   pos            = property.pos / property.resolution;
+            Vec2   pos            = property.pos * convReso2Scale(property.resolution);
 
             for (int i = 0; i < quantity; ++i) {
                 // 角度
@@ -589,7 +676,6 @@ namespace Particle2D
             int    imgHeight   = property.blankImg.height();
             double gravitySin  = sin(property.gravityRad);
             double gravityCos  = cos(property.gravityRad);
-            static const double AlphaFadeRatio  = 0.95;
 
             for (auto& r : elements) {
                 // 色の変化
@@ -631,9 +717,8 @@ namespace Particle2D
             }
 
             // 衝突判定
-            for (auto& r : obstacleLines)
-                collisionLine(elements, r);
-            obstacleLines.clear();  // 障害物をクリア
+            scalingObstacles(convReso2Scale(property.resolution));
+            collision(elements, deltaTimeSec);
 
             // 無効な粒子を削除
             cleanElements(elements);
@@ -808,7 +893,6 @@ namespace Particle2D
             int    windowHeight = Window::Height();
             double gravitySin   = sin(property.gravityRad);
             double gravityCos   = cos(property.gravityRad);
-            static const double AlphaFadeRatio  = 0.95;
 
             for (auto& r : elements) {
                 // 色の変化
@@ -862,11 +946,9 @@ namespace Particle2D
             }
 
             // 衝突判定
-            for (auto& r : obstacleLines)
-                collisionLine(elements, r);
-            obstacleLines.clear();  // 障害物をクリア
+            collision(elements, deltaTimeSec);
 
-                                     // 無効な粒子を削除
+            // 無効な粒子を削除
             cleanElements(elements);
         }
 

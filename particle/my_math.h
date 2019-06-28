@@ -258,17 +258,57 @@ public:
     // posB --- 線分1の終点
     // posC --- 線分2の始点
     // posD --- 線分2の終点
-    bool isHit_lineLine(Vec2 posA, Vec2 posB, Vec2 posC, Vec2 posD)
+    bool isHit_lineVsLine(Vec2 posA, Vec2 posB, Vec2 posC, Vec2 posD)
     {
-        Vec2 vecAB = posB - posA;
-        Vec2 vecCD = posD - posC;
-        Vec2 vecAC = posC - posA;
-        Vec2 vecAD = posD - posA;
-        Vec2 vecCA = posA - posC;
-        Vec2 vecCB = posB - posC;
+        Vec2 vecAB(posB - posA);
+        Vec2 vecCD(posD - posC);
+        Vec2 vecAC(posC - posA);
+        Vec2 vecAD(posD - posA);
+        Vec2 vecCA(posA - posC);
+        Vec2 vecCB(posB - posC);
 
         return (outerProduct(vecAB, vecAC) * outerProduct(vecAB, vecAD) < 0.0) &&
                (outerProduct(vecCD, vecCA) * outerProduct(vecCD, vecCB) < 0.0);
+    }
+
+
+
+    // 【メソッド】当たり判定。線分とスクリーン横軸
+    // ＜引数＞
+    // lineStartY  --- 線分の始点y
+    // lineEndY    --- 線分の終点y
+    // horizontalY --- 横軸のy座標
+    bool isHit_lineVsHorizontal(double lineStartY, double lineEndY, double horizontalY)
+    {
+        double a = horizontalY - lineStartY;
+        double b = horizontalY - lineEndY;
+        return a * b < 0.0;
+    }
+
+
+
+    // 【メソッド】当たり判定。線分とスクリーン縦軸
+    // ＜引数＞
+    // lineStartX --- 線分の始点x
+    // lineEndX   --- 線分の終点x
+    // verticalX  --- 縦軸のx座標
+    bool isHit_lineVsVertical(double lineStartX, double lineEndX, double verticalX)
+    {
+        double a = verticalX - lineStartX;
+        double b = verticalX - lineEndX;
+        return a * b < 0.0;
+    }
+
+
+
+    // 【メソッド】当たり判定。点と矩形
+    // ＜引数＞
+    // point --- 点の座標
+    // boxLeft, boxTop, boxRight, boxBottom --- 矩形の座標
+    bool isHit_pointVsBox(Vec2 point, double boxLeft, double boxTop, double boxRight, double boxBottom)
+    {
+        return (point.x >= boxLeft) && (point.y >= boxTop) && 
+               (point.x < boxRight) && (point.y < boxBottom);
     }
 
 
