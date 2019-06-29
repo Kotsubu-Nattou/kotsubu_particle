@@ -40,8 +40,8 @@ void Main()
             //smoke.create(5);
 
             // テスト
-            test.pos(Cursor::Pos()).size(3).speed(3).accelSpeed(-0.1).random(10);
-            test.create(100);
+            test.pos(Cursor::Pos()).size(5).speed(4).accelSpeed(-0.1).random(10);
+            test.create(50);
         }
 
         // 同じ種類であれば、1つのインスタンスでいつでも追加できる
@@ -52,12 +52,17 @@ void Main()
         //dot.create(3);
 
         // 障害物を登録
-        Vec2 line1start(270, 360), line1end(540, 240);  // 障害物（線分）その1
-        Vec2 line2start(120, 480), line2end(720, 540);  // 障害物（線分）その2
-        test.registObstacleLine(line1start, line1end);
-        test.registObstacleLine(line2start, line2end);
-        double left = 180, top = 180, right = 300, bottom = 300;
-        test.registObstacleRect(left, top, right, bottom);
+        //Vec2 line1start(270, 360), line1end(540, 240);  // 障害物（線分）その1
+        //Vec2 line2start(120, 480), line2end(720, 540);  // 障害物（線分）その2
+        //test.registObstacleLine(line1start, line1end);
+        //test.registObstacleLine(line2start, line2end);
+        //double left = 180, top = 180, right = 300, bottom = 300;
+        //test.registObstacleRect(left, top, right, bottom);
+        //Vec2 pos(600, 400);
+        //double radius = 150;
+        //test.registObstacleCircle(pos, radius);
+        std::vector<Vec2> vertices = { {200, 150}, {100, 300}, {250, 500}, {500, 400}, {550, 250} };
+        test.registObstaclePolygon(vertices);
 
         // パーティクルをアップデート（移動や色の経過処理を行う）
         //dot.update(System::DeltaTime());

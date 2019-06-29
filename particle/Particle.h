@@ -16,7 +16,7 @@ namespace Particle2D
     protected:
         MyMath& math = MyMath::getInstance();
 
-        // 各クラスで使用する定数
+        // 【内部定数】
         static inline const double Pi = 3.141592653589793;
         static inline const double TwoPi = Pi * 2.0;            // Radianの最大値
         static inline const double Deg2Rad = Pi / 180.0;        // Degに掛けるとRad
@@ -25,13 +25,13 @@ namespace Particle2D
         static inline const double One  = 1.0;                  // 1.0
         static inline const double Half = 0.5;                  // 0.5
         static inline const double MovingEpsilonPow = 0.01;     // これ未満の移動量^2を停止とする
-        static inline const double Fps60            = 1.0 / 60; // 60FPSのときの1フレームの秒数
+        static inline const double FrameSecOf60Fps  = 1.0 / 60; // 60FPSのときの1フレームの秒数
         static inline const double PowerRatio       = 0.8;
-        static inline const double AlphaFadeRatio   = 0.8;
+        static inline const double AlphaFadeRatio   = 1;
 
 
 
-        // 各クラスで使用する構造体
+        // 【内部構造体】粒子パラメータ、全体パラメータ
         struct Element
         {
             Vec2   pos;
@@ -72,7 +72,7 @@ namespace Particle2D
         };
 
 
-        // 衝突判定で使用する構造体＆フィールド
+        // 【内部構造体】衝突判定用
         struct Line
         {
             Vec2 startPos, endPos;
@@ -87,8 +87,22 @@ namespace Particle2D
             {}
         };
 
-        std::vector<Line> obstacleLines;
-        std::vector<Rect> obstacleRects;
+        struct Circle
+        {
+            Vec2 pos;
+            double radius;
+            Circle(Vec2 pos, double radius) : pos(pos), radius(radius)
+            {}
+        };
+
+
+
+        // 【内部フィールド】衝突判定用
+        std::vector<Line>   obstacleLines;
+        std::vector<Rect>   obstacleRects;
+        std::vector<Circle> obstacleCircle;
+        std::vector<std::vector<Vec2>> obstaclePolygon;
+
 
 
         // 【隠しコンストラクタ】
@@ -96,7 +110,7 @@ namespace Particle2D
         {}
 
 
-        // 【メソッド】
+        // 【内部メソッド】
         double fixSize(double size)
         {
             if (size < 1.0)size = 1.0;
@@ -146,14 +160,14 @@ namespace Particle2D
         }
 
 
-        // 【メソッド】解像度を、座標スケールに変換
+        // 【内部メソッド】解像度を、座標スケールに変換
         double convReso2Scale(double resolution)
         {
             return 1.0 / resolution;
         }
 
 
-        // 【メソッド】alphaを指定の割合に変更。フェードアウト用
+        // 【内部メソッド】alphaを指定の割合に変更。フェードアウト用
         // フェードアウト中に、通常のalpha加減算処理を行うとバッティングしてしまう。
         // そのため、1フレームだけパスさせるためにフラグを立てる（Element.alphaLock = true）
         // また、alphaが下限値を下回ったら、その粒子を無効にする。
@@ -168,7 +182,7 @@ namespace Particle2D
         }
 
 
-        // 【メソッド】無効な粒子を削除
+        // 【内部メソッド】無効な粒子を削除
         template<typename T>
         void cleanElements(T& elements)
         {
@@ -182,71 +196,83 @@ namespace Particle2D
         }
 
 
-        // 【メソッド】障害物をスケーリング
+        // 【内部メソッド】すべての障害物をスケーリング
         void scalingObstacles(double scale)
         {
-            // 等倍で無いならスケーリング
-            if (scale != 1.0) {
-                for (auto& r : obstacleLines) {
-                    r.startPos *= scale;
-                    r.endPos   *= scale;
-                }
-                for (auto& r : obstacleRects) {
-                    r.left   *= scale;
-                    r.top    *= scale;
-                    r.right  *= scale;
-                    r.bottom *= scale;
+            if (scale == 1.0) return;  // 等倍なら帰る
+            for (auto& r : obstacleLines) {
+                r.startPos *= scale;
+                r.endPos   *= scale;
+            }
+            for (auto& r : obstacleRects) {
+                r.left   *= scale;
+                r.top    *= scale;
+                r.right  *= scale;
+                r.bottom *= scale;
+            }
+            for (auto& r : obstacleCircle) {
+                r.pos    *= scale;
+                r.radius *= scale;
+            }
+            for (auto& polygon : obstaclePolygon) {
+                for (auto& vertex : polygon) {
+                    vertex.x *= scale;
+                    vertex.y *= scale;
                 }
             }
         }
 
 
-        // 【メソッド】すべての衝突判定を行う（障害物は破棄）
+        // 【内部メソッド】すべての衝突判定を行う（障害物は破棄）
         template<typename T>
         void collision(T& elements, double deltaTimeSec)
         {
-            double timeScale = Fps60 / deltaTimeSec;
+            double timeScale = FrameSecOf60Fps / deltaTimeSec;
 
-            // 各衝突判定
+            // すべての障害物に対する衝突判定
             for (auto& r : obstacleLines)
                 collisionLine(elements, r, timeScale);
 
             for (auto& r : obstacleRects)
                 collisionRect(elements, r, timeScale);
 
-            // 各障害物をクリア
+            for (auto& r : obstacleCircle)
+                collisionCircle(elements, r, timeScale);
+
+            for (auto& r : obstaclePolygon)
+                collisionPolygon(elements, r, timeScale);
+                
+            // すべての障害物をクリア
             obstacleLines.clear();
             obstacleRects.clear();
+            obstacleCircle.clear();
+            obstaclePolygon.clear();
         }
 
 
-        // 【メソッド】全粒子と線分の衝突判定
+        // 【内部メソッド】全粒子と線分の衝突判定
         template<typename T>
-        void collisionLine(T& elements, Line line, double timeScale)
+        void collisionLine(T& elements, Works::Line line, double timeScale)
         {
-            // 線分の要素
-            Vec2   lineVec    = line.endPos - line.startPos;
-            Vec2   lineNormal = math.normalize(lineVec);
-            double lineRad    = math.direction(lineVec);
+            double rad;
 
-            // 当たり判定
             for (auto& r : elements) {
                 if (math.isHit_lineVsLine(line.startPos, line.endPos, r.oldPos, r.pos)) {
                     fadeoutAlpha(r, AlphaFadeRatio);
                     if (r.enable) {
-                        reverseDirection(r, lineRad, timeScale);
-                        fixCollisionOverrun(r, line.startPos, lineNormal);
+                        rad = math.direction(line.endPos - line.startPos);
+                        reverseDirection(r, rad, timeScale);
+                        r.pos = r.oldPos;
                     }
                 }
             }
         }
 
 
-        // 【メソッド】全粒子と矩形の衝突判定
+        // 【内部メソッド】全粒子と矩形の衝突判定
         template<typename T>
-        void collisionRect(T& elements, Rect rect, double timeScale)
+        void collisionRect(T& elements, Works::Rect rect, double timeScale)
         {
-            // 当たり判定
             for (auto& r : elements) {
                 if (math.isHit_pointVsBox(r.pos, rect.left, rect.top, rect.right, rect.bottom)) {
                     fadeoutAlpha(r, AlphaFadeRatio);
@@ -265,7 +291,67 @@ namespace Particle2D
         }
 
 
-        // 【メソッド】粒子の進行方向を反転（位置修正なし）
+        // 【内部メソッド】全粒子と円の衝突判定
+        template<typename T>
+        void collisionCircle(T& elements, Works::Circle circle, double timeScale)
+        {
+            double radiusPow = circle.radius * circle.radius;
+
+            for (auto& r : elements) {
+                if (math.distancePow(r.pos, circle.pos) < radiusPow) {
+                    fadeoutAlpha(r, AlphaFadeRatio);
+                    if (r.enable) {
+                        reverseDirection(r, math.direction(circle.pos - r.pos) + math.RightAngle, timeScale);
+                        r.pos = r.oldPos;
+                    }
+                }
+            }
+        }
+
+
+        // 【内部メソッド】全粒子と凸多角形の衝突判定
+        template<typename T>
+        void collisionPolygon(T& elements, const std::vector<Vec2>& vertices, double timeScale)
+        {
+            Vec2   edgeStartPos, edgeEndPos;
+            int    edgeMax = vertices.size() - 1;
+            double rad;
+            bool   isOutside;
+
+            for (auto& r : elements) {
+                // 内包判定
+                isOutside = false;
+                for (int i = 0; i < edgeMax; ++i) {
+                    // 頂点nと頂点n+1を結ぶ辺をチェック
+                    edgeStartPos = vertices[i];
+                    edgeEndPos   = vertices[i + 1];
+                    if (math.outerProduct(r.pos - edgeStartPos, edgeEndPos - edgeStartPos) < 0.0) {
+                        isOutside = true;
+                        break;
+                    }
+                }
+                if (isOutside) continue;
+
+                // ここまで来たらHit
+                // 次に、どの辺と交差したかを調べる
+                for (int i = 0; i < edgeMax; ++i) {
+                    edgeStartPos = vertices[i];
+                    edgeEndPos   = vertices[i + 1];
+                    if (math.isHit_lineVsLine(edgeStartPos, edgeEndPos, r.oldPos, r.pos)) {
+                        fadeoutAlpha(r, AlphaFadeRatio);
+                        if (r.enable) {
+                            rad = math.direction(edgeEndPos - edgeStartPos);
+                            reverseDirection(r, rad, timeScale);
+                            r.pos = r.oldPos;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+
+        // 【内部メソッド】粒子の進行方向を反転（位置修正なし）
         // ＜引数＞
         // reflectionAxisRad --- 反射軸の角度
         void reverseDirection(Element& element, double reflectionAxisRad, double timeScale)
@@ -287,7 +373,7 @@ namespace Particle2D
         }
 
 
-        // 【メソッド】衝突面を通り過ぎた粒子位置を修正（厳密。負荷高め）
+        // 【内部メソッド】衝突面を通り過ぎた粒子位置を修正（厳密。負荷高め）
         // ＜引数＞
         // lineStartPos --- 衝突面（線分）の始点
         // lineNormal   --- 衝突面（線分）の正規化ベクトル
@@ -301,7 +387,7 @@ namespace Particle2D
         }
 
 
-        // 【メソッド】衝突面を通り過ぎた粒子位置を修正（軽量版）
+        // 【内部メソッド】衝突面を通り過ぎた粒子位置を修正（軽量版）
         // 次の移動時に衝突ループさせない最低限の修正のため、潜り込みは発生する。
         // もっと軽量、かつ潜り込まないようにするには、単純に pos = oldPos とすればよい
         void fixCollisionOverrunLite(Element& element)
@@ -317,15 +403,36 @@ namespace Particle2D
         // 順次登録可能。次回update時に反映＆すべて破棄
         void registObstacleLine(Vec2 lineStartPos, Vec2 lineEndPos)
         {
-            obstacleLines.emplace_back(Line(lineStartPos, lineEndPos));
+            obstacleLines.emplace_back(Works::Line(lineStartPos, lineEndPos));
         }
 
 
-        // 【メソッド】衝突判定の図形を登録（四角形）
+        // 【メソッド】衝突判定の図形を登録（矩形）
         // 順次登録可能。次回update時に反映＆すべて破棄
         void registObstacleRect(double left, double top, double right, double bottom)
         {
-            obstacleRects.emplace_back(Rect(left, top, right, bottom));
+            obstacleRects.emplace_back(Works::Rect(left, top, right, bottom));
+        }
+
+
+        // 【メソッド】衝突判定の図形を登録（円）
+        // 順次登録可能。次回update時に反映＆すべて破棄
+        void registObstacleCircle(Vec2 pos, double radius)
+        {
+            obstacleCircle.emplace_back(Works::Circle(pos, radius));
+        }
+
+
+        // 【メソッド】衝突判定の図形を登録（凸多角形）
+        // 順次登録可能。次回update時に反映＆すべて破棄
+        // ＜引数＞ vertices
+        // ・各頂点の座標を、vector<Vec2>に「反時計回り」の順に格納したもの
+        // ・凹型にならないよう注意する（動作不定。どうしても凹型にしたい場合は、凸型に分けて複数登録する）
+        // ・最後の頂点と最初の頂点は自動的に閉じられる
+        void registObstaclePolygon(std::vector<Vec2> vertices)
+        {
+            vertices.emplace_back(vertices[0]);  // 最後は最初の頂点と結んで「閉じる」ため
+            obstaclePolygon.emplace_back(vertices);
         }
     };
 
@@ -418,9 +525,9 @@ namespace Particle2D
 
 
         // 【メソッド】アップデート
-        void update(double deltaTimeSec = Fps60)
+        void update(double deltaTimeSec = FrameSecOf60Fps)
         {
-            double timeScale    = deltaTimeSec / Fps60;
+            double timeScale    = deltaTimeSec / FrameSecOf60Fps;
             int    windowWidth  = Window::Width();
             int    windowHeight = Window::Height();
             double gravitySin   = sin(property.gravityRad);
@@ -669,9 +776,9 @@ namespace Particle2D
 
 
         // 【メソッド】アップデート
-        void update(double deltaTimeSec = Fps60)
+        void update(double deltaTimeSec = FrameSecOf60Fps)
         {
-            double timeScale   = deltaTimeSec / Fps60;
+            double timeScale   = deltaTimeSec / FrameSecOf60Fps;
             int    imgWidth    = property.blankImg.width();
             int    imgHeight   = property.blankImg.height();
             double gravitySin  = sin(property.gravityRad);
@@ -886,9 +993,9 @@ namespace Particle2D
 
 
         // 【メソッド】アップデート
-        void update(double deltaTimeSec = Fps60)
+        void update(double deltaTimeSec = FrameSecOf60Fps)
         {
-            double timeScale    = deltaTimeSec / Fps60;
+            double timeScale    = deltaTimeSec / FrameSecOf60Fps;
             int    windowWidth  = Window::Width();
             int    windowHeight = Window::Height();
             double gravitySin   = sin(property.gravityRad);
