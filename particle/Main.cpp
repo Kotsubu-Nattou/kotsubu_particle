@@ -17,6 +17,13 @@ void Main()
     neko.setTexture(s3d::Texture(Emoji(U"🐈"), TextureDesc::Mipped));  // テクスチャは先に設定する
     
     Particle2D::Circle test;
+    //std::vector<Vec2> vertices = { {200, 150}, {550, 250}, {500, 400}, {250, 500}, {100, 300} };
+    std::vector<Vec2> vertices1 = { {250, 180}, {300, 200}, {350, 400}, {150, 500} };
+    std::vector<Vec2> vertices2 = { {350, 400}, {650, 350}, {150, 500} };
+    std::vector<Vec2> vertices3 = { {400, 180}, {580, 320}, {380, 280} };
+    Polygon polygon1(vertices1.data(), vertices1.size());
+    Polygon polygon2(vertices2.data(), vertices2.size());
+    Polygon polygon3(vertices3.data(), vertices3.size());
 
     
     while (System::Update()) {
@@ -40,7 +47,7 @@ void Main()
             //smoke.create(5);
 
             // テスト
-            test.pos(Cursor::Pos()).size(5).speed(4).accelSpeed(-0.1).random(10);
+            test.pos(Cursor::Pos()).size(4).speed(4).accelSpeed(-0.1).random(10).accelColor(ColorF(0, 0, 0, 0));
             test.create(50);
         }
 
@@ -61,8 +68,9 @@ void Main()
         //Vec2 pos(600, 400);
         //double radius = 150;
         //test.registObstacleCircle(pos, radius);
-        std::vector<Vec2> vertices = { {200, 150}, {100, 300}, {250, 500}, {500, 400}, {550, 250} };
-        test.registObstaclePolygon(vertices);
+        test.registObstaclePolygon(vertices1);
+        test.registObstaclePolygon(vertices2);
+        test.registObstaclePolygon(vertices3);
 
         // パーティクルをアップデート（移動や色の経過処理を行う）
         //dot.update(System::DeltaTime());
@@ -71,6 +79,9 @@ void Main()
         test.update(System::DeltaTime());
 
         // 背景とパーティクルをドロー
+        polygon1.drawFrame();
+        polygon2.drawFrame();
+        polygon3.drawFrame();
         //Rect(Window::Center() + Point(-200, -200), 250).draw(Palette::Brown);
         //Circle(Window::Center() + Point(70, 50), 150).draw(Palette::Greenyellow);
         //Circle(Window::Center() + Point(200, -150), 30).drawFrame(5.0, Palette::Blueviolet);

@@ -27,7 +27,7 @@ namespace Particle2D
         static inline const double MovingEpsilonPow = 0.01;     // これ未満の移動量^2を停止とする
         static inline const double FrameSecOf60Fps  = 1.0 / 60; // 60FPSのときの1フレームの秒数
         static inline const double PowerRatio       = 0.8;
-        static inline const double AlphaFadeRatio   = 1;
+        static inline const double AlphaFadeRatio   = 0.8;
 
 
 
@@ -100,8 +100,8 @@ namespace Particle2D
         // 【内部フィールド】衝突判定用
         std::vector<Line>   obstacleLines;
         std::vector<Rect>   obstacleRects;
-        std::vector<Circle> obstacleCircle;
-        std::vector<std::vector<Vec2>> obstaclePolygon;
+        std::vector<Circle> obstacleCircles;
+        std::vector<std::vector<Vec2>> obstaclePolygons;
 
 
 
@@ -210,11 +210,11 @@ namespace Particle2D
                 r.right  *= scale;
                 r.bottom *= scale;
             }
-            for (auto& r : obstacleCircle) {
+            for (auto& r : obstacleCircles) {
                 r.pos    *= scale;
                 r.radius *= scale;
             }
-            for (auto& polygon : obstaclePolygon) {
+            for (auto& polygon : obstaclePolygons) {
                 for (auto& vertex : polygon) {
                     vertex.x *= scale;
                     vertex.y *= scale;
@@ -236,17 +236,17 @@ namespace Particle2D
             for (auto& r : obstacleRects)
                 collisionRect(elements, r, timeScale);
 
-            for (auto& r : obstacleCircle)
+            for (auto& r : obstacleCircles)
                 collisionCircle(elements, r, timeScale);
 
-            for (auto& r : obstaclePolygon)
+            for (auto& r : obstaclePolygons)
                 collisionPolygon(elements, r, timeScale);
                 
             // すべての障害物をクリア
             obstacleLines.clear();
             obstacleRects.clear();
-            obstacleCircle.clear();
-            obstaclePolygon.clear();
+            obstacleCircles.clear();
+            obstaclePolygons.clear();
         }
 
 
@@ -310,6 +310,8 @@ namespace Particle2D
 
 
         // 【内部メソッド】全粒子と凸多角形の衝突判定
+        // ＜引数＞ vertices
+        // ・多角形の各頂点の座標を、vector<Vec2>に「時計回り」の順に格納したもの
         template<typename T>
         void collisionPolygon(T& elements, const std::vector<Vec2>& vertices, double timeScale)
         {
@@ -325,7 +327,7 @@ namespace Particle2D
                     // 頂点nと頂点n+1を結ぶ辺をチェック
                     edgeStartPos = vertices[i];
                     edgeEndPos   = vertices[i + 1];
-                    if (math.outerProduct(r.pos - edgeStartPos, edgeEndPos - edgeStartPos) < 0.0) {
+                    if (math.outerProduct(edgeEndPos - edgeStartPos, r.pos - edgeStartPos) < 0.0) {
                         isOutside = true;
                         break;
                     }
@@ -419,20 +421,20 @@ namespace Particle2D
         // 順次登録可能。次回update時に反映＆すべて破棄
         void registObstacleCircle(Vec2 pos, double radius)
         {
-            obstacleCircle.emplace_back(Works::Circle(pos, radius));
+            obstacleCircles.emplace_back(Works::Circle(pos, radius));
         }
 
 
         // 【メソッド】衝突判定の図形を登録（凸多角形）
         // 順次登録可能。次回update時に反映＆すべて破棄
         // ＜引数＞ vertices
-        // ・各頂点の座標を、vector<Vec2>に「反時計回り」の順に格納したもの
+        // ・各頂点の座標を、vector<Vec2>に「時計回り」の順に格納したもの
         // ・凹型にならないよう注意する（動作不定。どうしても凹型にしたい場合は、凸型に分けて複数登録する）
         // ・最後の頂点と最初の頂点は自動的に閉じられる
-        void registObstaclePolygon(std::vector<Vec2> vertices)
+        void registObstaclePolygon(std::vector<Vec2>& vertices)
         {
             vertices.emplace_back(vertices[0]);  // 最後は最初の頂点と結んで「閉じる」ため
-            obstaclePolygon.emplace_back(vertices);
+            obstaclePolygons.emplace_back(vertices);
         }
     };
 
@@ -530,8 +532,8 @@ namespace Particle2D
             double timeScale    = deltaTimeSec / FrameSecOf60Fps;
             int    windowWidth  = Window::Width();
             int    windowHeight = Window::Height();
-            double gravitySin   = sin(property.gravityRad);
-            double gravityCos   = cos(property.gravityRad);
+            double gravitySin   = sin(property.gravityRad) * timeScale;
+            double gravityCos   = cos(property.gravityRad) * timeScale;
 
             for (auto& r : elements) {
                 // 色の変化
@@ -781,8 +783,8 @@ namespace Particle2D
             double timeScale   = deltaTimeSec / FrameSecOf60Fps;
             int    imgWidth    = property.blankImg.width();
             int    imgHeight   = property.blankImg.height();
-            double gravitySin  = sin(property.gravityRad);
-            double gravityCos  = cos(property.gravityRad);
+            double gravitySin  = sin(property.gravityRad) * timeScale;
+            double gravityCos  = cos(property.gravityRad) * timeScale;
 
             for (auto& r : elements) {
                 // 色の変化
@@ -998,8 +1000,8 @@ namespace Particle2D
             double timeScale    = deltaTimeSec / FrameSecOf60Fps;
             int    windowWidth  = Window::Width();
             int    windowHeight = Window::Height();
-            double gravitySin   = sin(property.gravityRad);
-            double gravityCos   = cos(property.gravityRad);
+            double gravitySin   = sin(property.gravityRad) * timeScale;
+            double gravityCos   = cos(property.gravityRad) * timeScale;
 
             for (auto& r : elements) {
                 // 色の変化
