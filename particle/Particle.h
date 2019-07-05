@@ -225,7 +225,7 @@ namespace Particle2D
 
         // 【内部メソッド】すべての衝突判定を行う（障害物は破棄）
         template<typename T>
-        void collision(T& elements, double deltaTimeSec)
+        void collisionAll(T& elements, double deltaTimeSec)
         {
             double timeScale = FrameSecOf60Fps / deltaTimeSec;
 
@@ -309,7 +309,8 @@ namespace Particle2D
         }
 
 
-        // 【内部メソッド】全粒子と凸多角形の衝突判定
+        // 【内部メソッド】全粒子と凸多角形（全ての内角は180°以内）の衝突判定
+        // 処理速度優先のため、細長い部分は「壁抜け」が発生する
         // ＜引数＞ vertices
         // ・多角形の各頂点の座標を、vector<Vec2>に「時計回り」の順に格納したもの
         template<typename T>
@@ -318,13 +319,13 @@ namespace Particle2D
             Vec2   edgeStartPos, edgeEndPos;
             int    edgeMax = vertices.size() - 1;
             double rad;
-            bool   isOutside;
+            bool   isOutside, isIntersect;
 
             for (auto& r : elements) {
-                // 内包判定
+                // @ 内包判定
+                // 頂点nと頂点n+1を結ぶ辺から見て、粒子が「左側」にあるなら終了
                 isOutside = false;
                 for (int i = 0; i < edgeMax; ++i) {
-                    // 頂点nと頂点n+1を結ぶ辺をチェック
                     edgeStartPos = vertices[i];
                     edgeEndPos   = vertices[i + 1];
                     if (math.outerProduct(edgeEndPos - edgeStartPos, r.pos - edgeStartPos) < 0.0) {
@@ -334,8 +335,9 @@ namespace Particle2D
                 }
                 if (isOutside) continue;
 
-                // ここまで来たらHit
-                // 次に、どの辺と交差したかを調べる
+                // @ ここまで来たらHit
+                // どの辺と交差したかを調べて跳ね返す
+                isIntersect = false;
                 for (int i = 0; i < edgeMax; ++i) {
                     edgeStartPos = vertices[i];
                     edgeEndPos   = vertices[i + 1];
@@ -345,10 +347,14 @@ namespace Particle2D
                             rad = math.direction(edgeEndPos - edgeStartPos);
                             reverseDirection(r, rad, timeScale);
                             r.pos = r.oldPos;
+                            isIntersect = true;
                         }
                         break;
                     }
                 }
+                // 交差している辺が無い（図形内部でcreateした等）なら、図形を抜けるまで
+                // 上の処理が行われて重くなるため、粒子を消す
+                r.enable = isIntersect;
             }
         }
 
@@ -425,8 +431,10 @@ namespace Particle2D
         }
 
 
-        // 【メソッド】衝突判定の図形を登録（凸多角形）
-        // 順次登録可能。次回update時に反映＆すべて破棄
+        // 【メソッド】衝突判定の図形を登録（凸多角形。全ての内角は180°以内）
+        // 順次登録可能。次回update時に反映＆すべて破棄。
+        // 処理速度優先のため、細長い部分は「壁抜け」が発生する。問題がある場合、
+        // 図形をそこだけ「線分」で構成するとよい（registObstacleLineは正確）
         // ＜引数＞ vertices
         // ・各頂点の座標を、vector<Vec2>に「時計回り」の順に格納したもの
         // ・凹型にならないよう注意する（動作不定。どうしても凹型にしたい場合は、凸型に分けて複数登録する）
@@ -582,7 +590,7 @@ namespace Particle2D
             }
 
             // 衝突判定
-            collision(elements, deltaTimeSec);
+            collisionAll(elements, deltaTimeSec);
 
             // 無効な粒子を削除
             cleanElements(elements);
@@ -827,7 +835,7 @@ namespace Particle2D
 
             // 衝突判定
             scalingObstacles(convReso2Scale(property.resolution));
-            collision(elements, deltaTimeSec);
+            collisionAll(elements, deltaTimeSec);
 
             // 無効な粒子を削除
             cleanElements(elements);
@@ -1055,7 +1063,7 @@ namespace Particle2D
             }
 
             // 衝突判定
-            collision(elements, deltaTimeSec);
+            collisionAll(elements, deltaTimeSec);
 
             // 無効な粒子を削除
             cleanElements(elements);
