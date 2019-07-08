@@ -47,8 +47,8 @@ void Main()
             //smoke.create(5);
 
             // テスト
-            test.pos(Cursor::Pos()).size(4).speed(4).accelSpeed(-0.1).random(10).accelColor(ColorF(0, 0, 0, 0));
-            test.create(50);
+            test.pos(Cursor::Pos()).size(3).speed(3).accelSpeed(-0.1).random(5).accelColor(ColorF(0, 0, 0, 0));
+            test.create(200);
         }
 
         // 同じ種類であれば、1つのインスタンスでいつでも追加できる
