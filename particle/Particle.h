@@ -102,6 +102,7 @@ namespace Particle2D
         std::vector<Rect>   obstacleRects;
         std::vector<Circle> obstacleCircles;
         std::vector<std::vector<Vec2>> obstaclePolygons;
+        //std::vector<std::vector<Vec2>> obstaclePolylines;
 
 
 
@@ -230,17 +231,10 @@ namespace Particle2D
             double timeScale = FrameSecOf60Fps / deltaTimeSec;
 
             // すべての障害物に対する衝突判定
-            for (auto& r : obstacleLines)
-                collisionLine(elements, r, timeScale);
-
-            for (auto& r : obstacleRects)
-                collisionRect(elements, r, timeScale);
-
-            for (auto& r : obstacleCircles)
-                collisionCircle(elements, r, timeScale);
-
-            for (auto& r : obstaclePolygons)
-                collisionPolygon(elements, r, timeScale);
+            collisionLine(elements, timeScale);
+            collisionRect(elements, timeScale);
+            collisionCircle(elements, timeScale);
+            collisionPolygon(elements, timeScale);
                 
             // すべての障害物をクリア
             obstacleLines.clear();
@@ -252,17 +246,21 @@ namespace Particle2D
 
         // 【内部メソッド】全粒子と線分の衝突判定
         template<typename T>
-        void collisionLine(T& elements, Works::Line line, double timeScale)
+        void collisionLine(T& elements, double timeScale)
         {
+            if (obstacleLines.empty()) return;
             double rad;
 
-            for (auto& r : elements) {
-                if (math.isHit_lineVsLine(line.startPos, line.endPos, r.oldPos, r.pos)) {
-                    fadeoutAlpha(r, AlphaFadeRatio);
-                    if (r.enable) {
-                        rad = math.direction(line.endPos - line.startPos);
-                        reverseDirection(r, rad, timeScale);
-                        r.pos = r.oldPos;
+            for (auto& elm : elements) {
+                for (auto& line : obstacleLines) {
+                    if (math.isHit_lineVsLine(line.startPos, line.endPos, elm.oldPos, elm.pos)) {
+                        fadeoutAlpha(elm, AlphaFadeRatio);
+                        if (elm.enable) {
+                            rad = math.direction(line.endPos - line.startPos);
+                            reverseDirection(elm, rad, timeScale);
+                            elm.pos = elm.oldPos;
+                        }
+                        break;
                     }
                 }
             }
@@ -271,20 +269,25 @@ namespace Particle2D
 
         // 【内部メソッド】全粒子と矩形の衝突判定
         template<typename T>
-        void collisionRect(T& elements, Works::Rect rect, double timeScale)
+        void collisionRect(T& elements, double timeScale)
         {
-            for (auto& r : elements) {
-                if (math.isHit_pointVsBox(r.pos, rect.left, rect.top, rect.right, rect.bottom)) {
-                    fadeoutAlpha(r, AlphaFadeRatio);
-                    if (r.enable) {
-                        if (math.isHit_lineVsHorizontal(r.oldPos.y, r.pos.y, rect.top) ||
-                            math.isHit_lineVsHorizontal(r.oldPos.y, r.pos.y, rect.bottom)) {
-                            reverseDirection(r, 0.0, timeScale);
+            if (obstacleRects.empty()) return;
+
+            for (auto& elm : elements) {
+                for (auto& rect : obstacleRects) {
+                    if (math.isHit_pointVsBox(elm.pos, rect.left, rect.top, rect.right, rect.bottom)) {
+                        fadeoutAlpha(elm, AlphaFadeRatio);
+                        if (elm.enable) {
+                            if (math.isHit_lineVsHorizontal(elm.oldPos.y, elm.pos.y, rect.top) ||
+                                math.isHit_lineVsHorizontal(elm.oldPos.y, elm.pos.y, rect.bottom)) {
+                                reverseDirection(elm, 0.0, timeScale);
+                            }
+                            else {
+                                reverseDirection(elm, math.RightAngle, timeScale);
+                            }
+                            elm.pos = elm.oldPos;
                         }
-                        else {
-                            reverseDirection(r, math.RightAngle, timeScale);
-                        }
-                        r.pos = r.oldPos;
+                        break;
                     }
                 }
             }
@@ -293,16 +296,21 @@ namespace Particle2D
 
         // 【内部メソッド】全粒子と円の衝突判定
         template<typename T>
-        void collisionCircle(T& elements, Works::Circle circle, double timeScale)
+        void collisionCircle(T& elements, double timeScale)
         {
-            double radiusPow = circle.radius * circle.radius;
+            if (obstacleCircles.empty()) return;
+            double radiusPow;
 
-            for (auto& r : elements) {
-                if (math.distancePow(r.pos, circle.pos) < radiusPow) {
-                    fadeoutAlpha(r, AlphaFadeRatio);
-                    if (r.enable) {
-                        reverseDirection(r, math.direction(circle.pos - r.pos) + math.RightAngle, timeScale);
-                        r.pos = r.oldPos;
+            for (auto& elm : elements) {
+                for (auto& circle : obstacleCircles) {
+                    radiusPow = circle.radius * circle.radius;
+                    if (math.distancePow(elm.pos, circle.pos) < radiusPow) {
+                        fadeoutAlpha(elm, AlphaFadeRatio);
+                        if (elm.enable) {
+                            reverseDirection(elm, math.direction(circle.pos - elm.pos) + math.RightAngle, timeScale);
+                            elm.pos = elm.oldPos;
+                        }
+                        break;
                     }
                 }
             }
@@ -314,47 +322,52 @@ namespace Particle2D
         // ＜引数＞ vertices
         // ・多角形の各頂点の座標を、vector<Vec2>に「時計回り」の順に格納したもの
         template<typename T>
-        void collisionPolygon(T& elements, const std::vector<Vec2>& vertices, double timeScale)
+        void collisionPolygon(T& elements, double timeScale)
         {
+            if (obstaclePolygons.empty()) return;
             Vec2   edgeStartPos, edgeEndPos;
-            int    edgeMax = vertices.size() - 1;
+            int    edgeMax;
             double rad;
             bool   isOutside, isIntersect;
 
-            for (auto& r : elements) {
-                // @ 内包判定
-                // 頂点nと頂点n+1を結ぶ辺から見て、粒子が「左側」にあるなら終了
-                isOutside = false;
-                for (int i = 0; i < edgeMax; ++i) {
-                    edgeStartPos = vertices[i];
-                    edgeEndPos   = vertices[i + 1];
-                    if (math.outerProduct(edgeEndPos - edgeStartPos, r.pos - edgeStartPos) < 0.0) {
-                        isOutside = true;
-                        break;
-                    }
-                }
-                if (isOutside) continue;
-
-                // @ ここまで来たらHit
-                // どの辺と交差したかを調べて跳ね返す
-                isIntersect = false;
-                for (int i = 0; i < edgeMax; ++i) {
-                    edgeStartPos = vertices[i];
-                    edgeEndPos   = vertices[i + 1];
-                    if (math.isHit_lineVsLine(edgeStartPos, edgeEndPos, r.oldPos, r.pos)) {
-                        fadeoutAlpha(r, AlphaFadeRatio);
-                        if (r.enable) {
-                            rad = math.direction(edgeEndPos - edgeStartPos);
-                            reverseDirection(r, rad, timeScale);
-                            r.pos = r.oldPos;
-                            isIntersect = true;
+            for (auto& elm : elements) {
+                for (auto& vertices : obstaclePolygons) {
+                    edgeMax = vertices.size() - 1;
+                    // @ 内包判定
+                    // 頂点nと頂点n+1を結ぶ辺から見て、粒子が「左側」にあった時点で判定をやめる
+                    isOutside = false;
+                    for (int i = 0; i < edgeMax; ++i) {
+                        edgeStartPos = vertices[i];
+                        edgeEndPos = vertices[i + 1];
+                        if (math.outerProduct(edgeEndPos - edgeStartPos, elm.pos - edgeStartPos) < 0.0) {
+                            isOutside = true;
+                            break;
                         }
-                        break;
                     }
+                    if (isOutside) continue;
+
+                    // @ ここまで来たらHit
+                    // どの辺と交差したかを調べて跳ね返す
+                    isIntersect = false;
+                    for (int i = 0; i < edgeMax; ++i) {
+                        edgeStartPos = vertices[i];
+                        edgeEndPos = vertices[i + 1];
+                        if (math.isHit_lineVsLine(edgeStartPos, edgeEndPos, elm.oldPos, elm.pos)) {
+                            fadeoutAlpha(elm, AlphaFadeRatio);
+                            if (elm.enable) {
+                                rad = math.direction(edgeEndPos - edgeStartPos);
+                                reverseDirection(elm, rad, timeScale);
+                                elm.pos = elm.oldPos;
+                                isIntersect = true;
+                            }
+                            break;
+                        }
+                    }
+                    // 交差している辺が無い（図形の内部）なら、図形の外に出ない限り
+                    // 上の処理が行われ続けて重くなるので、粒子を消す
+                    elm.enable = isIntersect;
+                    break;
                 }
-                // 交差している辺が無い（図形内部でcreateした等）なら、図形を抜けるまで
-                // 上の処理が行われて重くなるため、粒子を消す
-                r.enable = isIntersect;
             }
         }
 
@@ -433,7 +446,7 @@ namespace Particle2D
 
         // 【メソッド】衝突判定の図形を登録（凸多角形。全ての内角は180°以内）
         // 順次登録可能。次回update時に反映＆すべて破棄。
-        // 処理速度優先のため、細長い部分は「壁抜け」が発生する。問題がある場合、
+        // 処理速度優先のため、細長い部分は「壁抜け」が発生する。問題がある場合は、
         // 図形をそこだけ「線分」で構成するとよい（registObstacleLineは正確）
         // ＜引数＞ vertices
         // ・各頂点の座標を、vector<Vec2>に「時計回り」の順に格納したもの
