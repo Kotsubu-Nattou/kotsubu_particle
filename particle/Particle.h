@@ -15,6 +15,9 @@ namespace Particle2D
     {
     protected:
         MyMath& math = MyMath::getInstance();
+        // 【テスト】
+        Font font = Font(24);
+        Stopwatch timer;
 
         // 【内部定数】
         static inline const double Pi = 3.141592653589793;
@@ -186,13 +189,19 @@ namespace Particle2D
         template<typename T>
         void cleanElements(T& elements)
         {
+            // 【テスト】
+            timer.restart();
 
             auto dustIt = std::remove_if(elements.begin(), elements.end(),
                 [](Element& element) { return !element.enable; });
 
             elements.erase(dustIt, elements.end());
-
-            //Print << U"elements.size: " << elements.size();
+            
+            // 【テスト】
+            timer.pause();
+            font(U"elements.size    : ", elements.size()).draw(0, 30);
+            font(U"elements.capacity: ", elements.capacity()).draw(0, 60);
+            font(U"cleanElements time(ms): ", timer.ms()).draw(0, 90);
         }
 
 
@@ -228,6 +237,8 @@ namespace Particle2D
         void collisionAll(T& elements, double deltaTimeSec)
         {
             double timeScale = FrameSecOf60Fps / deltaTimeSec;
+            // 【テスト】
+            timer.restart();
 
             // すべての障害物に対する衝突判定
             for (auto& r : obstacleLines)
@@ -247,6 +258,10 @@ namespace Particle2D
             obstacleRects.clear();
             obstacleCircles.clear();
             obstaclePolygons.clear();
+            
+            // 【テスト】
+            timer.pause();
+            font(U"collisionAll time(ms): ", timer.ms()).draw(0, 120);
         }
 
 
@@ -254,13 +269,11 @@ namespace Particle2D
         template<typename T>
         void collisionLine(T& elements, Works::Line line, double timeScale)
         {
-            double rad;
-
             for (auto& r : elements) {
                 if (math.isHit_lineVsLine(line.startPos, line.endPos, r.oldPos, r.pos)) {
                     fadeoutAlpha(r, AlphaFadeRatio);
                     if (r.enable) {
-                        rad = math.direction(line.endPos - line.startPos);
+                        double rad = math.direction(line.endPos - line.startPos);
                         reverseDirection(r, rad, timeScale);
                         r.pos = r.oldPos;
                     }
@@ -316,18 +329,17 @@ namespace Particle2D
         template<typename T>
         void collisionPolygon(T& elements, const std::vector<Vec2>& vertices, double timeScale)
         {
-            Vec2   edgeStartPos, edgeEndPos;
-            int    edgeMax = vertices.size() - 1;
-            double rad;
-            bool   isOutside, isIntersect;
+            int edgeMax = vertices.size() - 1;
+            // 【テスト】
+            font(U"vertices.size: ", vertices.size()).draw(0, 150);
 
             for (auto& r : elements) {
                 // @ 内包判定
                 // 頂点nと頂点n+1を結ぶ辺から見て、粒子が「左側」にあるなら終了
-                isOutside = false;
+                bool isOutside = false;
                 for (int i = 0; i < edgeMax; ++i) {
-                    edgeStartPos = vertices[i];
-                    edgeEndPos   = vertices[i + 1];
+                    Vec2 edgeStartPos = vertices[i];
+                    Vec2 edgeEndPos   = vertices[i + 1];
                     if (math.outerProduct(edgeEndPos - edgeStartPos, r.pos - edgeStartPos) < 0.0) {
                         isOutside = true;
                         break;
@@ -337,14 +349,14 @@ namespace Particle2D
 
                 // @ ここまで来たらHit
                 // どの辺と交差したかを調べて跳ね返す
-                isIntersect = false;
+                bool isIntersect = false;
                 for (int i = 0; i < edgeMax; ++i) {
-                    edgeStartPos = vertices[i];
-                    edgeEndPos   = vertices[i + 1];
+                    Vec2 edgeStartPos = vertices[i];
+                    Vec2 edgeEndPos   = vertices[i + 1];
                     if (math.isHit_lineVsLine(edgeStartPos, edgeEndPos, r.oldPos, r.pos)) {
                         fadeoutAlpha(r, AlphaFadeRatio);
                         if (r.enable) {
-                            rad = math.direction(edgeEndPos - edgeStartPos);
+                            double rad = math.direction(edgeEndPos - edgeStartPos);
                             reverseDirection(r, rad, timeScale);
                             r.pos = r.oldPos;
                             isIntersect = true;
@@ -439,10 +451,11 @@ namespace Particle2D
         // ・各頂点の座標を、vector<Vec2>に「時計回り」の順に格納したもの
         // ・凹型にならないよう注意する（動作不定。どうしても凹型にしたい場合は、凸型に分けて複数登録する）
         // ・最後の頂点と最初の頂点は自動的に閉じられる
-        void registObstaclePolygon(std::vector<Vec2>& vertices)
+        void registObstaclePolygon(const std::vector<Vec2>& vertices)
         {
-            vertices.emplace_back(vertices[0]);  // 最後は最初の頂点と結んで「閉じる」ため
+            if (vertices.size() < 3) return;  // 頂点が3個未満なら登録しない
             obstaclePolygons.emplace_back(vertices);
+            obstaclePolygons.back().emplace_back(vertices[0]);  // 図形を閉じるための「最後の頂点」を追加
         }
     };
 
