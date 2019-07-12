@@ -264,14 +264,13 @@ namespace Particle2D
         void collisionLine(T& elements, double timeScale)
         {
             if (obstacleLines.empty()) return;
-            double rad;
 
             for (auto& elm : elements) {
                 for (auto& line : obstacleLines) {
                     if (math.isHit_lineVsLine(line.startPos, line.endPos, elm.oldPos, elm.pos)) {
                         fadeoutAlpha(elm, AlphaFadeRatio);
                         if (elm.enable) {
-                            rad = math.direction(line.endPos - line.startPos);
+                            double rad = math.direction(line.endPos - line.startPos);
                             reverseDirection(elm, rad, timeScale);
                             elm.pos = elm.oldPos;
                         }
@@ -314,11 +313,10 @@ namespace Particle2D
         void collisionCircle(T& elements, double timeScale)
         {
             if (obstacleCircles.empty()) return;
-            double radiusPow;
 
             for (auto& elm : elements) {
                 for (auto& circle : obstacleCircles) {
-                    radiusPow = circle.radius * circle.radius;
+                    double radiusPow = circle.radius * circle.radius;
                     if (math.distancePow(elm.pos, circle.pos) < radiusPow) {
                         fadeoutAlpha(elm, AlphaFadeRatio);
                         if (elm.enable) {
@@ -340,22 +338,16 @@ namespace Particle2D
         void collisionPolygon(T& elements, double timeScale)
         {
             if (obstaclePolygons.empty()) return;
-            Vec2   edgeStartPos, edgeEndPos;
-            int    edgeMax;
-            double rad;
-            bool   isOutside, isIntersect;
-            // 【テスト】
-            font(U"vertices.size: ", vertices.size()).draw(0, 150);
 
             for (auto& elm : elements) {
                 for (auto& vertices : obstaclePolygons) {
-                    edgeMax = vertices.size() - 1;
+                    int edgeMax = vertices.size() - 1;
                     // @ 内包判定
                     // 頂点nと頂点n+1を結ぶ辺から見て、粒子が「左側」にあった時点で判定をやめる
-                    isOutside = false;
+                    bool isOutside = false;
                     for (int i = 0; i < edgeMax; ++i) {
-                        edgeStartPos = vertices[i];
-                        edgeEndPos = vertices[i + 1];
+                        Vec2 edgeStartPos = vertices[i];
+                        Vec2 edgeEndPos   = vertices[i + 1];
                         if (math.outerProduct(edgeEndPos - edgeStartPos, elm.pos - edgeStartPos) < 0.0) {
                             isOutside = true;
                             break;
@@ -365,14 +357,14 @@ namespace Particle2D
 
                     // @ ここまで来たらHit
                     // どの辺と交差したかを調べて跳ね返す
-                    isIntersect = false;
+                    bool isIntersect = false;
                     for (int i = 0; i < edgeMax; ++i) {
-                        edgeStartPos = vertices[i];
-                        edgeEndPos = vertices[i + 1];
+                        Vec2 edgeStartPos = vertices[i];
+                        Vec2 edgeEndPos   = vertices[i + 1];
                         if (math.isHit_lineVsLine(edgeStartPos, edgeEndPos, elm.oldPos, elm.pos)) {
                             fadeoutAlpha(elm, AlphaFadeRatio);
                             if (elm.enable) {
-                                rad = math.direction(edgeEndPos - edgeStartPos);
+                                double rad = math.direction(edgeEndPos - edgeStartPos);
                                 reverseDirection(elm, rad, timeScale);
                                 elm.pos = elm.oldPos;
                                 isIntersect = true;
