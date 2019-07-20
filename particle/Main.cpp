@@ -52,8 +52,12 @@ void Main()
         //}
 
         // 【テスト】
-        test.pos(Vec2(430+Random(20), 310+Random(20))).size(3).speed(3).accelSpeed(-0.1).random(4).accelColor(ColorF(0, 0, 0, 0));
-        test.create(50000);
+        //test.pos(Vec2(430+Random(20), 310+Random(20))).size(3).speed(3).accelSpeed(-0.1).random(4).accelColor(ColorF(0, 0, 0, 0));
+        //test.create(50000);
+        if (MouseL.pressed()) {
+            test.pos(Cursor::Pos()).size(3).speed(3).accelSpeed(-0.1).random(5).accelColor(ColorF(0, 0, 0, 0));
+            test.create(1000);
+        }
 
         // 同じ種類であれば、1つのインスタンスでいつでも追加できる
         // 【メモ】パラメータの種類と、設定が反映するタイミング
@@ -78,12 +82,12 @@ void Main()
         test.registObstaclePolygon(vertices3);
 
         // パーティクルをアップデート（移動や色の経過処理を行う）
-        //dot.update(System::DeltaTime());
-        //smoke.update(System::DeltaTime());
-        //neko.update(System::DeltaTime());
+        //dot.update();
+        //smoke.update();
+        //neko.update();
         // 【テスト】
         timer.restart();
-        test.update(System::DeltaTime());
+        test.update();
         timer.pause();
 
         // 背景とパーティクルをドロー
@@ -98,7 +102,7 @@ void Main()
         //dot.draw();
         // 【テスト】
         font(U"update time(ms): ", timer.ms()).draw();
-        if (MouseL.pressed()) 
-            test.draw();
+        //if (MouseL.pressed()) test.draw();
+        test.draw();
     }
 }

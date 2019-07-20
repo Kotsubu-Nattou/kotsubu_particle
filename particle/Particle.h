@@ -186,18 +186,36 @@ namespace Particle2D
         }
 
 
-        // 【内部メソッド】無効な粒子を削除
+        //// 【内部メソッド】無効な粒子を削除（Erase-Removeイディオム）
+        //template<typename T>
+        //void cleanElements(T& elements)
+        //{
+        //    // いらない物を後ろにどける
+        //    auto dustIt = std::remove_if(elements.begin(), elements.end(),
+        //        [](Element& elm) { return !elm.enable; });
+
+        //    // どけた部分を抹消
+        //    elements.erase(dustIt, elements.end());
+        //}
+
+
+        // 【内部メソッド】無効な粒子を削除（軽量版。並びの安定性なし）
         template<typename T>
         void cleanElements(T& elements)
         {
             // 【テスト】
             timer.restart();
 
-            auto dustIt = std::remove_if(elements.begin(), elements.end(),
-                [](Element& element) { return !element.enable; });
+            int i = 0;
 
-            elements.erase(dustIt, elements.end());
-            
+            while (i < elements.size()) {
+                if (!elements[i].enable) {
+                    std::swap(elements[i], elements.back());  // 末尾と交換
+                    elements.pop_back();                      // 末尾を削除
+                }
+                else ++i;
+            }
+
             // 【テスト】
             timer.pause();
             font(U"elements.size    : ", elements.size()).draw(0, 30);
@@ -242,10 +260,10 @@ namespace Particle2D
             timer.restart();
 
             // すべての障害物に対する衝突判定
-            collisionLine(elements, timeScale);
-            collisionRect(elements, timeScale);
-            collisionCircle(elements, timeScale);
-            collisionPolygon(elements, timeScale);
+            collisionLines(elements, timeScale);
+            collisionRects(elements, timeScale);
+            collisionCircles(elements, timeScale);
+            collisionPolygons(elements, timeScale);
                 
             // すべての障害物をクリア
             obstacleLines.clear();
@@ -259,9 +277,9 @@ namespace Particle2D
         }
 
 
-        // 【内部メソッド】全粒子と線分の衝突判定
+        // 【内部メソッド】すべての線分との衝突判定
         template<typename T>
-        void collisionLine(T& elements, double timeScale)
+        void collisionLines(T& elements, double timeScale)
         {
             if (obstacleLines.empty()) return;
 
@@ -281,9 +299,9 @@ namespace Particle2D
         }
 
 
-        // 【内部メソッド】全粒子と矩形の衝突判定
+        // 【内部メソッド】すべての矩形との衝突判定
         template<typename T>
-        void collisionRect(T& elements, double timeScale)
+        void collisionRects(T& elements, double timeScale)
         {
             if (obstacleRects.empty()) return;
 
@@ -308,9 +326,9 @@ namespace Particle2D
         }
 
 
-        // 【内部メソッド】全粒子と円の衝突判定
+        // 【内部メソッド】すべての円との衝突判定
         template<typename T>
-        void collisionCircle(T& elements, double timeScale)
+        void collisionCircles(T& elements, double timeScale)
         {
             if (obstacleCircles.empty()) return;
 
@@ -330,12 +348,12 @@ namespace Particle2D
         }
 
 
-        // 【内部メソッド】全粒子と凸多角形（全ての内角は180°以内）の衝突判定
+        // 【内部メソッド】すべての凸多角形（全ての内角は180°以内）との衝突判定
         // 処理速度優先のため、細長い部分は「壁抜け」が発生する
         // ＜引数＞ vertices
         // ・多角形の各頂点の座標を、vector<Vec2>に「時計回り」の順に格納したもの
         template<typename T>
-        void collisionPolygon(T& elements, double timeScale)
+        void collisionPolygons(T& elements, double timeScale)
         {
             if (obstaclePolygons.empty()) return;
 
@@ -403,28 +421,28 @@ namespace Particle2D
         }
 
 
-        // 【内部メソッド】衝突面を通り過ぎた粒子位置を修正（厳密。負荷高め）
-        // ＜引数＞
-        // lineStartPos --- 衝突面（線分）の始点
-        // lineNormal   --- 衝突面（線分）の正規化ベクトル
-        void fixCollisionOverrun(Element& element, Vec2 lineStartPos, Vec2 lineNormal)
-        {
-            Vec2 normal = math.normalize(element.pos - element.oldPos);
-            Vec2 hypot  = element.pos - lineStartPos;
-            double len  = abs(math.outerProduct(hypot, lineNormal));
+        //// 【内部メソッド】衝突面を通り過ぎた粒子位置を修正（厳密。負荷高め）
+        //// ＜引数＞
+        //// lineStartPos --- 衝突面（線分）の始点
+        //// lineNormal   --- 衝突面（線分）の正規化ベクトル
+        //void fixCollisionOverrun(Element& element, Vec2 lineStartPos, Vec2 lineNormal)
+        //{
+        //    Vec2 normal = math.normalize(element.pos - element.oldPos);
+        //    Vec2 hypot  = element.pos - lineStartPos;
+        //    double len  = abs(math.outerProduct(hypot, lineNormal));
 
-            element.pos -= normal * len * 2.0;
-        }
+        //    element.pos -= normal * len * 2.0;
+        //}
 
 
-        // 【内部メソッド】衝突面を通り過ぎた粒子位置を修正（軽量版）
-        // 次の移動時に衝突ループさせない最低限の修正のため、潜り込みは発生する。
-        // もっと軽量、かつ潜り込まないようにするには、単純に pos = oldPos とすればよい
-        void fixCollisionOverrunLite(Element& element)
-        {
-            Vec2 v(element.pos - element.oldPos);
-            element.pos = element.oldPos + v * PowerRatio;
-        }
+        //// 【内部メソッド】衝突面を通り過ぎた粒子位置を修正（軽量版）
+        //// 次の移動時に衝突ループさせない最低限の修正のため、潜り込みは発生する。
+        //// もっと軽量、かつ潜り込まないようにするには、単純に pos = oldPos とすればよい
+        //void fixCollisionOverrunLite(Element& element)
+        //{
+        //    Vec2 v(element.pos - element.oldPos);
+        //    element.pos = element.oldPos + v * PowerRatio;
+        //}
 
 
 
@@ -465,7 +483,7 @@ namespace Particle2D
         {
             if (vertices.size() < 3) return;  // 頂点が3個未満なら登録しない
             obstaclePolygons.emplace_back(vertices);
-            obstaclePolygons.back().emplace_back(vertices[0]);  // 図形を閉じるための「最後の頂点」を追加
+            obstaclePolygons.back().emplace_back(vertices[0]);  // 図形を閉じるための「最初の頂点」を追加
         }
     };
 
@@ -558,11 +576,12 @@ namespace Particle2D
 
 
         // 【メソッド】アップデート
-        void update(double deltaTimeSec = FrameSecOf60Fps)
+        void update()
         {
-            double timeScale    = deltaTimeSec / FrameSecOf60Fps;
-            int    windowWidth  = Window::Width();
-            int    windowHeight = Window::Height();
+            double delta        = s3d::System::DeltaTime();
+            double timeScale    = delta / FrameSecOf60Fps;
+            int    windowWidth  = s3d::Window::Width();
+            int    windowHeight = s3d::Window::Height();
             double gravitySin   = sin(property.gravityRad) * timeScale;
             double gravityCos   = cos(property.gravityRad) * timeScale;
 
@@ -613,7 +632,7 @@ namespace Particle2D
             }
 
             // 衝突判定
-            collisionAll(elements, deltaTimeSec);
+            collisionAll(elements, delta);
 
             // 無効な粒子を削除
             cleanElements(elements);
@@ -809,9 +828,10 @@ namespace Particle2D
 
 
         // 【メソッド】アップデート
-        void update(double deltaTimeSec = FrameSecOf60Fps)
+        void update()
         {
-            double timeScale   = deltaTimeSec / FrameSecOf60Fps;
+            double delta       = s3d::System::DeltaTime();
+            double timeScale   = delta / FrameSecOf60Fps;
             int    imgWidth    = property.blankImg.width();
             int    imgHeight   = property.blankImg.height();
             double gravitySin  = sin(property.gravityRad) * timeScale;
@@ -858,7 +878,7 @@ namespace Particle2D
 
             // 衝突判定
             scalingObstacles(convReso2Scale(property.resolution));
-            collisionAll(elements, deltaTimeSec);
+            collisionAll(elements, delta);
 
             // 無効な粒子を削除
             cleanElements(elements);
@@ -1026,11 +1046,12 @@ namespace Particle2D
 
 
         // 【メソッド】アップデート
-        void update(double deltaTimeSec = FrameSecOf60Fps)
+        void update()
         {
-            double timeScale    = deltaTimeSec / FrameSecOf60Fps;
-            int    windowWidth  = Window::Width();
-            int    windowHeight = Window::Height();
+            double delta        = s3d::System::DeltaTime();
+            double timeScale    = delta / FrameSecOf60Fps;
+            int    windowWidth  = s3d::Window::Width();
+            int    windowHeight = s3d::Window::Height();
             double gravitySin   = sin(property.gravityRad) * timeScale;
             double gravityCos   = cos(property.gravityRad) * timeScale;
 
@@ -1086,7 +1107,7 @@ namespace Particle2D
             }
 
             // 衝突判定
-            collisionAll(elements, deltaTimeSec);
+            collisionAll(elements, delta);
 
             // 無効な粒子を削除
             cleanElements(elements);
