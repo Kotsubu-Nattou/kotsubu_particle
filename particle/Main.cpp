@@ -23,12 +23,12 @@ void Main()
     //std::vector<Vec2> vertices = { {200, 150}, {550, 250}, {500, 400}, {250, 500}, {100, 300} };
     std::vector<Vec2> vertices1 = { {250, 180}, {300, 200}, {350, 400}, {150, 500} };
     //std::vector<Vec2> vertices2 = { {350, 400}, {650, 350}, {150, 500} };
-    std::vector<Vec2> vertices2 = { {350, 400}, {650, 350}, {700, 550}, {150, 500} };
+    std::vector<Vec2> vertices2 = { {650, 350}, {700, 550}, {150, 500}, {350, 400} };
     std::vector<Vec2> vertices3 = { {400, 180}, {580, 320}, {380, 280} };
     Polygon polygon1(vertices1.data(), vertices1.size());
     Polygon polygon2(vertices2.data(), vertices2.size());
     Polygon polygon3(vertices3.data(), vertices3.size());
-
+    
     
     while (System::Update()) {
         //if (MouseL.down()) {
@@ -77,8 +77,8 @@ void Main()
         //double radius = 150;
         //test.registObstacleCircle(pos, radius);
         // 【テスト】
-        test.registObstaclePolygon(vertices1);
-        test.registObstaclePolygon(vertices2);
+        test.registObstaclePolyline(vertices1);
+        test.registObstaclePolyline(vertices2);
         test.registObstaclePolygon(vertices3);
 
         // パーティクルをアップデート（移動や色の経過処理を行う）

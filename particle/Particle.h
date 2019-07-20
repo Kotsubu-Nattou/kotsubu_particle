@@ -105,7 +105,7 @@ namespace Particle2D
         std::vector<Rect>   obstacleRects;
         std::vector<Circle> obstacleCircles;
         std::vector<std::vector<Vec2>> obstaclePolygons;
-        //std::vector<std::vector<Vec2>> obstaclePolylines;
+        std::vector<std::vector<Vec2>> obstaclePolylines;
 
 
 
@@ -228,6 +228,7 @@ namespace Particle2D
         void scalingObstacles(double scale)
         {
             if (scale == 1.0) return;  // 等倍なら帰る
+
             for (auto& r : obstacleLines) {
                 r.startPos *= scale;
                 r.endPos   *= scale;
@@ -248,6 +249,12 @@ namespace Particle2D
                     vertex.y *= scale;
                 }
             }
+            for (auto& polyline : obstaclePolylines) {
+                for (auto& vertex : polyline) {
+                    vertex.x *= scale;
+                    vertex.y *= scale;
+                }
+            }
         }
 
 
@@ -264,12 +271,14 @@ namespace Particle2D
             collisionRects(elements, timeScale);
             collisionCircles(elements, timeScale);
             collisionPolygons(elements, timeScale);
+            collisionPolylines(elements, timeScale);
                 
             // すべての障害物をクリア
             obstacleLines.clear();
             obstacleRects.clear();
             obstacleCircles.clear();
             obstaclePolygons.clear();
+            obstaclePolylines.clear();
             
             // 【テスト】
             timer.pause();
@@ -277,7 +286,7 @@ namespace Particle2D
         }
 
 
-        // 【内部メソッド】すべての線分との衝突判定
+        // 【内部メソッド】線分との衝突判定
         template<typename T>
         void collisionLines(T& elements, double timeScale)
         {
@@ -299,7 +308,7 @@ namespace Particle2D
         }
 
 
-        // 【内部メソッド】すべての矩形との衝突判定
+        // 【内部メソッド】矩形との衝突判定
         template<typename T>
         void collisionRects(T& elements, double timeScale)
         {
@@ -326,7 +335,7 @@ namespace Particle2D
         }
 
 
-        // 【内部メソッド】すべての円との衝突判定
+        // 【内部メソッド】円との衝突判定
         template<typename T>
         void collisionCircles(T& elements, double timeScale)
         {
@@ -348,7 +357,7 @@ namespace Particle2D
         }
 
 
-        // 【内部メソッド】すべての凸多角形（全ての内角は180°以内）との衝突判定
+        // 【内部メソッド】凸多角形（全ての内角は180°以内）との衝突判定
         // 処理速度優先のため、細長い部分は「壁抜け」が発生する
         // ＜引数＞ vertices
         // ・多角形の各頂点の座標を、vector<Vec2>に「時計回り」の順に格納したもの
@@ -364,9 +373,8 @@ namespace Particle2D
                     // 頂点nと頂点n+1を結ぶ辺から見て、粒子が「左側」にあった時点で判定をやめる
                     bool isOutside = false;
                     for (int i = 0; i < edgeMax; ++i) {
-                        Vec2 edgeStartPos = vertices[i];
-                        Vec2 edgeEndPos   = vertices[i + 1];
-                        if (math.outerProduct(edgeEndPos - edgeStartPos, elm.pos - edgeStartPos) < 0.0) {
+                        Works::Line edge(vertices[i], vertices[i + 1]);
+                        if (math.outerProduct(edge.endPos - edge.startPos, elm.pos - edge.startPos) < 0.0) {
                             isOutside = true;
                             break;
                         }
@@ -377,12 +385,11 @@ namespace Particle2D
                     // どの辺と交差したかを調べて跳ね返す
                     bool isIntersect = false;
                     for (int i = 0; i < edgeMax; ++i) {
-                        Vec2 edgeStartPos = vertices[i];
-                        Vec2 edgeEndPos   = vertices[i + 1];
-                        if (math.isHit_lineVsLine(edgeStartPos, edgeEndPos, elm.oldPos, elm.pos)) {
+                        Works::Line edge(vertices[i], vertices[i + 1]);
+                        if (math.isHit_lineVsLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
                             fadeoutAlpha(elm, AlphaFadeRatio);
                             if (elm.enable) {
-                                double rad = math.direction(edgeEndPos - edgeStartPos);
+                                double rad = math.direction(edge.endPos - edge.startPos);
                                 reverseDirection(elm, rad, timeScale);
                                 elm.pos = elm.oldPos;
                                 isIntersect = true;
@@ -394,6 +401,35 @@ namespace Particle2D
                     // 上の処理が行われ続けて重くなるので、粒子を消す
                     elm.enable = isIntersect;
                     break;
+                }
+            }
+        }
+
+
+        // 【内部メソッド】ポリライン（数珠繋ぎの線分）との衝突判定
+        template<typename T>
+        void collisionPolylines(T& elements, double timeScale)
+        {
+            if (obstaclePolylines.empty()) return;
+
+            for (auto& elm : elements) {
+                for (auto& vertices : obstaclePolylines) {
+                    bool isIntersect = false;
+                    int edgeMax = vertices.size() - 1;
+                    for (int i = 0; i < edgeMax; ++i) {
+                        Works::Line edge(vertices[i], vertices[i + 1]);
+                        if (math.isHit_lineVsLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
+                            fadeoutAlpha(elm, AlphaFadeRatio);
+                            if (elm.enable) {
+                                double rad = math.direction(edge.endPos - edge.startPos);
+                                reverseDirection(elm, rad, timeScale);
+                                elm.pos = elm.oldPos;
+                            }
+                            isIntersect = true;
+                            break;
+                        }
+                    }
+                    if (isIntersect) break;
                 }
             }
         }
@@ -483,7 +519,18 @@ namespace Particle2D
         {
             if (vertices.size() < 3) return;  // 頂点が3個未満なら登録しない
             obstaclePolygons.emplace_back(vertices);
-            obstaclePolygons.back().emplace_back(vertices[0]);  // 図形を閉じるための「最初の頂点」を追加
+            obstaclePolygons.back().emplace_back(vertices[0]);  // 図形を閉じるために「最初の頂点」を追加
+        }
+
+
+        // 【メソッド】衝突判定の図形を登録（ポリライン。数珠繋ぎの線分）
+        // 順次登録可能。次回update時に反映＆すべて破棄。
+        // ＜引数＞ vertices
+        // ・各頂点の座標を、順番にvector<Vec2>に格納したもの
+        void registObstaclePolyline(const std::vector<Vec2>& vertices)
+        {
+            if (vertices.size() < 2) return;  // 頂点が2個未満なら登録しない
+            obstaclePolylines.emplace_back(vertices);
         }
     };
 
