@@ -25,10 +25,12 @@ void Main()
     //std::vector<Vec2> vertices2 = { {350, 400}, {650, 350}, {150, 500} };
     std::vector<Vec2> vertices2 = { {650, 350}, {700, 550}, {150, 500}, {350, 400} };
     std::vector<Vec2> vertices3 = { {400, 180}, {580, 320}, {380, 280} };
+    std::vector<Vec2> vertices4 = { {725, 50}, {750, 100}, {700, 100} };
     Polygon polygon1(vertices1.data(), vertices1.size());
     Polygon polygon2(vertices2.data(), vertices2.size());
     Polygon polygon3(vertices3.data(), vertices3.size());
-    
+    Polygon polygon4(vertices4.data(), vertices4.size());
+
     
     while (System::Update()) {
         //if (MouseL.down()) {
@@ -52,12 +54,12 @@ void Main()
         //}
 
         // 【テスト】
-        //test.pos(Vec2(430+Random(20), 310+Random(20))).size(3).speed(3).accelSpeed(-0.1).random(4).accelColor(ColorF(0, 0, 0, 0));
-        //test.create(50000);
-        if (MouseL.pressed()) {
-            test.pos(Cursor::Pos()).size(3).speed(3).accelSpeed(-0.1).random(5).accelColor(ColorF(0, 0, 0, 0));
-            test.create(1000);
-        }
+        test.pos(Vec2(430+Random(20), 310+Random(20))).size(3).speed(3).accelSpeed(-0.1).random(4).accelColor(ColorF(0, 0, 0, 0));
+        test.create(50000);
+        //if (MouseL.pressed()) {
+        //    test.pos(Cursor::Pos()).size(3).speed(3).accelSpeed(-0.1).random(5).accelColor(ColorF(0, 0, 0, 0));
+        //    test.create(1000);
+        //}
 
         // 同じ種類であれば、1つのインスタンスでいつでも追加できる
         // 【メモ】パラメータの種類と、設定が反映するタイミング
@@ -77,9 +79,15 @@ void Main()
         //double radius = 150;
         //test.registObstacleCircle(pos, radius);
         // 【テスト】
-        test.registObstaclePolyline(vertices1);
-        test.registObstaclePolyline(vertices2);
+        test.registObstaclePolygon(vertices4);
+        test.registObstaclePolygon(vertices4);
+        test.registObstaclePolygon(vertices4);
+        test.registObstaclePolygon(vertices4);
+        test.registObstaclePolygon(vertices4);
+        test.registObstaclePolygon(vertices1);
+        test.registObstaclePolygon(vertices2);
         test.registObstaclePolygon(vertices3);
+        test.registObstaclePolygon(vertices4);
 
         // パーティクルをアップデート（移動や色の経過処理を行う）
         //dot.update();
@@ -94,6 +102,7 @@ void Main()
         polygon1.drawFrame();
         polygon2.drawFrame();
         polygon3.drawFrame();
+        polygon4.drawFrame();
         //Rect(Window::Center() + Point(-200, -200), 250).draw(Palette::Brown);
         //Circle(Window::Center() + Point(70, 50), 150).draw(Palette::Greenyellow);
         //Circle(Window::Center() + Point(200, -150), 30).drawFrame(5.0, Palette::Blueviolet);
@@ -102,7 +111,7 @@ void Main()
         //dot.draw();
         // 【テスト】
         font(U"update time(ms): ", timer.ms()).draw();
-        //if (MouseL.pressed()) test.draw();
-        test.draw();
+        if (MouseL.pressed()) test.draw();
+        //test.draw();
     }
 }

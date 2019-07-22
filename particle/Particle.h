@@ -357,6 +357,14 @@ namespace Particle2D
         }
 
 
+        int shiftId(int inId, int shiftNum, int size)
+        {
+            int outId = inId + shiftNum;
+            if (outId >= size) outId -= size;
+            return outId;
+        }
+
+
         // 【内部メソッド】凸多角形（全ての内角は180°以内）との衝突判定
         // 処理速度優先のため、細長い部分は「壁抜け」が発生する
         // ＜引数＞ vertices
@@ -365,10 +373,18 @@ namespace Particle2D
         void collisionPolygons(T& elements, double timeScale)
         {
             if (obstaclePolygons.empty()) return;
+            int obstacleQty = obstaclePolygons.size();
+            int shiftNum    = Random(obstacleQty);
+            std::vector<int> id(obstacleQty);
+            for (int i = 0; i < obstacleQty; ++i) {
+                id[shiftId(i, shiftNum, obstacleQty)] = i;
+            }
 
             for (auto& elm : elements) {
-                for (auto& vertices : obstaclePolygons) {
+                for (int i = 0; i < obstacleQty; ++i) {
+                    auto& vertices = obstaclePolygons[id[i]];  // i, id[i], shiftId(i, shiftNum, obstacleQty), どれにするか
                     int edgeMax = vertices.size() - 1;
+
                     // @ 内包判定
                     // 頂点nと頂点n+1を結ぶ辺から見て、粒子が「左側」にあった時点で判定をやめる
                     bool isOutside = false;
