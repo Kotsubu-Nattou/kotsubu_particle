@@ -2,8 +2,8 @@
 【ヘッダオンリークラス】my_math
 
 ・概要
-  数学で使う定数とメソッドを集めたシングルトン。
-  一部のメソッド、および全ての定数はstaticなので、インクルードだけで利用可能。
+  数学で使う定数、構造体、メソッドを集めたシングルトン。
+  構造体および、定数と一部のメソッドはstaticなので、インクルードだけで利用可能。
   解放は不要（アプリケーション終了時に自動）
   基本的にベクトルは、OpenSiv3DのVec2で運用することを前提とした。
   もし、クラスstruct_vecのVEC2を使う場合は、このファイル冒頭、または
@@ -43,7 +43,32 @@ class MyMath {
 
 
 public:
-    // 【定数】数学用の定数
+    // 【構造体】汎用
+    struct Line
+    {
+        Vec2 startPos, endPos;
+        Line(Vec2 startPos, Vec2 endPos) : startPos(startPos), endPos(endPos)
+        {}
+    };
+
+    struct Rect
+    {
+        double left, top, right, bottom;
+        Rect(double left, double top, double right, double bottom) : left(left), top(top), right(right), bottom(bottom)
+        {}
+    };
+
+    struct Circle
+    {
+        Vec2 pos;
+        double radius;
+        Circle(Vec2 pos, double radius) : pos(pos), radius(radius)
+        {}
+    };
+
+
+
+    // 【定数】数学用
     static constexpr double Epsilon    = 0.00001;           // これ未満を0とする
     static constexpr double Pi         = 3.141592653589793; // π
     static constexpr double TwoPi      = Pi * 2.0;          // Radianの最大値
@@ -68,6 +93,9 @@ public:
     }
 
 
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // @@@ 数学メソッド
 
     // 【メソッド】sin（テーブル引き）
     double sin(double radian)
@@ -252,13 +280,16 @@ public:
 
 
 
-    // 【メソッド】当たり判定。線分と線分
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // @@@ 衝突判定
+
+    // 【メソッド】交差判定。線分と線分
     // ＜引数＞
     // posA --- 線分1の始点
     // posB --- 線分1の終点
     // posC --- 線分2の始点
     // posD --- 線分2の終点
-    bool isHit_lineVsLine(Vec2 posA, Vec2 posB, Vec2 posC, Vec2 posD)
+    bool isHit_lineOnLine(Vec2 posA, Vec2 posB, Vec2 posC, Vec2 posD)
     {
         Vec2 vecAB(posB - posA);
         Vec2 vecCD(posD - posC);
@@ -273,12 +304,12 @@ public:
 
 
 
-    // 【メソッド】当たり判定。線分とスクリーン横軸
+    // 【メソッド】交差判定。線分とスクリーン横軸
     // ＜引数＞
     // lineStartY  --- 線分の始点y
     // lineEndY    --- 線分の終点y
     // horizontalY --- 横軸のy座標
-    bool isHit_lineVsHorizontal(double lineStartY, double lineEndY, double horizontalY)
+    bool isHit_lineOnHorizontal(double lineStartY, double lineEndY, double horizontalY)
     {
         double a = horizontalY - lineStartY;
         double b = horizontalY - lineEndY;
@@ -287,12 +318,12 @@ public:
 
 
 
-    // 【メソッド】当たり判定。線分とスクリーン縦軸
+    // 【メソッド】交差判定。線分とスクリーン縦軸
     // ＜引数＞
     // lineStartX --- 線分の始点x
     // lineEndX   --- 線分の終点x
     // verticalX  --- 縦軸のx座標
-    bool isHit_lineVsVertical(double lineStartX, double lineEndX, double verticalX)
+    bool isHit_lineOnVertical(double lineStartX, double lineEndX, double verticalX)
     {
         double a = verticalX - lineStartX;
         double b = verticalX - lineEndX;
@@ -301,14 +332,45 @@ public:
 
 
 
-    // 【メソッド】当たり判定。点と矩形
+    // 【メソッド】内包判定。点と矩形
     // ＜引数＞
     // point --- 点の座標
     // boxLeft, boxTop, boxRight, boxBottom --- 矩形の座標
-    bool isHit_pointVsBox(Vec2 point, double boxLeft, double boxTop, double boxRight, double boxBottom)
+    bool isHit_pointInBox(Vec2 point, double boxLeft, double boxTop, double boxRight, double boxBottom)
     {
-        return (point.x >= boxLeft) && (point.y >= boxTop) && 
-               (point.x < boxRight) && (point.y < boxBottom);
+        return (point.x >= boxLeft)  && (point.y >= boxTop) && 
+               (point.x <  boxRight) && (point.y <  boxBottom);
+    }
+
+    bool isHit_pointInBox(Vec2 point, Rect box)
+    {
+        return isHit_pointInBox(point, box.left, box.top, box.right, box.bottom);
+    }
+
+
+
+    // 【メソッド】内包判定。点と多角形（すべての辺の内側かどうか）
+    // ＜引数＞
+    // point    --- 点の座標
+    // vertices --- 多角形を構成する頂点。vector<Vec2>
+    // ＜補足＞
+    // 正しい結果を得るには、頂点が右回り（左回りなら結果は逆）、閉じた図形、全ての内角は180°以下であること。
+    // 上記の条件を満たさない場合は、エラーにならず不定な動作となる
+    bool isHit_pointInPolygon(Vec2 point, const std::vector<Vec2>& vertices)
+    {
+        bool isInside = true;
+        int edgeQty = vertices.size() - 1;
+
+        // 頂点nと頂点n+1を結ぶ辺から見て、点が「左側」にあった時点で判定をやめる
+        for (int i = 0; i < edgeQty; ++i) {
+            Line edge(vertices[i], vertices[i + 1]);
+            if (outerProduct(edge.endPos - edge.startPos, point - edge.startPos) < 0.0) {
+                isInside = false;
+                break;
+            }
+        }
+
+        return isInside;
     }
 
 
@@ -316,7 +378,7 @@ public:
 
 
 private:
-    // @@@ テーブル構造体
+    // 【構造体】テーブル用
     struct SinTable
     {
         static constexpr int Resolution  = 2000;
@@ -334,7 +396,7 @@ private:
 
 
 
-    // @@@ 隠しメソッド
+    // 【隠しメソッド】
     // 隠しコンストラクタ
     MyMath()
     {

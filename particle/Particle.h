@@ -6,6 +6,7 @@
 #include "my_math.h"
 
 
+
 namespace Particle2D
 {
     /////////////////////////////////////////////////////////////////////////////////////
@@ -75,35 +76,11 @@ namespace Particle2D
         };
 
 
-        // 【内部構造体】衝突判定用
-        struct Line
-        {
-            Vec2 startPos, endPos;
-            Line(Vec2 startPos, Vec2 endPos) : startPos(startPos), endPos(endPos)
-            {}
-        };
-
-        struct Rect
-        {
-            double left, top, right, bottom;
-            Rect(double left, double top, double right, double bottom) : left(left), top(top), right(right), bottom(bottom)
-            {}
-        };
-
-        struct Circle
-        {
-            Vec2 pos;
-            double radius;
-            Circle(Vec2 pos, double radius) : pos(pos), radius(radius)
-            {}
-        };
-
-
 
         // 【内部フィールド】衝突判定用
-        std::vector<Line>   obstacleLines;
-        std::vector<Rect>   obstacleRects;
-        std::vector<Circle> obstacleCircles;
+        std::vector<MyMath::Line>      obstacleLines;
+        std::vector<MyMath::Rect>      obstacleRects;
+        std::vector<MyMath::Circle>    obstacleCircles;
         std::vector<std::vector<Vec2>> obstaclePolygons;
         std::vector<std::vector<Vec2>> obstaclePolylines;
 
@@ -291,10 +268,11 @@ namespace Particle2D
         void collisionLines(T& elements, double timeScale)
         {
             if (obstacleLines.empty()) return;
+            std::rotate(obstacleLines.begin(), obstacleLines.begin() + Random(obstacleLines.size() - 1), obstacleLines.end());
 
             for (auto& elm : elements) {
                 for (auto& line : obstacleLines) {
-                    if (math.isHit_lineVsLine(line.startPos, line.endPos, elm.oldPos, elm.pos)) {
+                    if (math.isHit_lineOnLine(line.startPos, line.endPos, elm.oldPos, elm.pos)) {
                         fadeoutAlpha(elm, AlphaFadeRatio);
                         if (elm.enable) {
                             double rad = math.direction(line.endPos - line.startPos);
@@ -313,14 +291,15 @@ namespace Particle2D
         void collisionRects(T& elements, double timeScale)
         {
             if (obstacleRects.empty()) return;
+            std::rotate(obstacleRects.begin(), obstacleRects.begin() + Random(obstacleRects.size() - 1), obstacleRects.end());
 
             for (auto& elm : elements) {
                 for (auto& rect : obstacleRects) {
-                    if (math.isHit_pointVsBox(elm.pos, rect.left, rect.top, rect.right, rect.bottom)) {
+                    if (math.isHit_pointInBox(elm.pos, rect)) {
                         fadeoutAlpha(elm, AlphaFadeRatio);
                         if (elm.enable) {
-                            if (math.isHit_lineVsHorizontal(elm.oldPos.y, elm.pos.y, rect.top) ||
-                                math.isHit_lineVsHorizontal(elm.oldPos.y, elm.pos.y, rect.bottom)) {
+                            if (math.isHit_lineOnHorizontal(elm.oldPos.y, elm.pos.y, rect.top) ||
+                                math.isHit_lineOnHorizontal(elm.oldPos.y, elm.pos.y, rect.bottom)) {
                                 reverseDirection(elm, 0.0, timeScale);
                             }
                             else {
@@ -340,6 +319,7 @@ namespace Particle2D
         void collisionCircles(T& elements, double timeScale)
         {
             if (obstacleCircles.empty()) return;
+            std::rotate(obstacleCircles.begin(), obstacleCircles.begin() + Random(obstacleCircles.size() - 1), obstacleCircles.end());
 
             for (auto& elm : elements) {
                 for (auto& circle : obstacleCircles) {
@@ -357,15 +337,7 @@ namespace Particle2D
         }
 
 
-        int shiftId(int inId, int shiftNum, int size)
-        {
-            int outId = inId + shiftNum;
-            if (outId >= size) outId -= size;
-            return outId;
-        }
-
-
-        // 【内部メソッド】凸多角形（全ての内角は180°以内）との衝突判定
+        // 【内部メソッド】凸多角形（全ての内角は180°以下）との衝突判定
         // 処理速度優先のため、細長い部分は「壁抜け」が発生する
         // ＜引数＞ vertices
         // ・多角形の各頂点の座標を、vector<Vec2>に「時計回り」の順に格納したもの
@@ -373,36 +345,21 @@ namespace Particle2D
         void collisionPolygons(T& elements, double timeScale)
         {
             if (obstaclePolygons.empty()) return;
-            int obstacleQty = obstaclePolygons.size();
-            int shiftNum    = Random(obstacleQty);
-            std::vector<int> id(obstacleQty);
-            for (int i = 0; i < obstacleQty; ++i) {
-                id[shiftId(i, shiftNum, obstacleQty)] = i;
-            }
+            std::rotate(obstaclePolygons.begin(), obstaclePolygons.begin() + Random(obstaclePolygons.size() - 1), obstaclePolygons.end());
 
             for (auto& elm : elements) {
-                for (int i = 0; i < obstacleQty; ++i) {
-                    auto& vertices = obstaclePolygons[id[i]];  // i, id[i], shiftId(i, shiftNum, obstacleQty), どれにするか
-                    int edgeMax = vertices.size() - 1;
-
+                for (auto& vertices : obstaclePolygons) {
+                    int edgeQty = vertices.size() - 1;
                     // @ 内包判定
-                    // 頂点nと頂点n+1を結ぶ辺から見て、粒子が「左側」にあった時点で判定をやめる
-                    bool isOutside = false;
-                    for (int i = 0; i < edgeMax; ++i) {
-                        Works::Line edge(vertices[i], vertices[i + 1]);
-                        if (math.outerProduct(edge.endPos - edge.startPos, elm.pos - edge.startPos) < 0.0) {
-                            isOutside = true;
-                            break;
-                        }
-                    }
-                    if (isOutside) continue;
+                    // 頂点nと頂点n+1を結ぶ辺から見て、粒子が「左側」なら判定をやめる
+                    if (!math.isHit_pointInPolygon(elm.pos, vertices)) continue;
 
                     // @ ここまで来たらHit
                     // どの辺と交差したかを調べて跳ね返す
                     bool isIntersect = false;
-                    for (int i = 0; i < edgeMax; ++i) {
-                        Works::Line edge(vertices[i], vertices[i + 1]);
-                        if (math.isHit_lineVsLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
+                    for (int i = 0; i < edgeQty; ++i) {
+                        MyMath::Line edge(vertices[i], vertices[i + 1]);
+                        if (math.isHit_lineOnLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
                             fadeoutAlpha(elm, AlphaFadeRatio);
                             if (elm.enable) {
                                 double rad = math.direction(edge.endPos - edge.startPos);
@@ -427,14 +384,15 @@ namespace Particle2D
         void collisionPolylines(T& elements, double timeScale)
         {
             if (obstaclePolylines.empty()) return;
+            std::rotate(obstaclePolylines.begin(), obstaclePolylines.begin() + Random(obstaclePolylines.size() - 1), obstaclePolylines.end());
 
             for (auto& elm : elements) {
                 for (auto& vertices : obstaclePolylines) {
                     bool isIntersect = false;
-                    int edgeMax = vertices.size() - 1;
-                    for (int i = 0; i < edgeMax; ++i) {
-                        Works::Line edge(vertices[i], vertices[i + 1]);
-                        if (math.isHit_lineVsLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
+                    int edgeQty = vertices.size() - 1;
+                    for (int i = 0; i < edgeQty; ++i) {
+                        MyMath::Line edge(vertices[i], vertices[i + 1]);
+                        if (math.isHit_lineOnLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
                             fadeoutAlpha(elm, AlphaFadeRatio);
                             if (elm.enable) {
                                 double rad = math.direction(edge.endPos - edge.startPos);
@@ -503,7 +461,7 @@ namespace Particle2D
         // 順次登録可能。次回update時に反映＆すべて破棄
         void registObstacleLine(Vec2 lineStartPos, Vec2 lineEndPos)
         {
-            obstacleLines.emplace_back(Works::Line(lineStartPos, lineEndPos));
+            obstacleLines.emplace_back(MyMath::Line(lineStartPos, lineEndPos));
         }
 
 
@@ -511,7 +469,7 @@ namespace Particle2D
         // 順次登録可能。次回update時に反映＆すべて破棄
         void registObstacleRect(double left, double top, double right, double bottom)
         {
-            obstacleRects.emplace_back(Works::Rect(left, top, right, bottom));
+            obstacleRects.emplace_back(MyMath::Rect(left, top, right, bottom));
         }
 
 
@@ -519,11 +477,11 @@ namespace Particle2D
         // 順次登録可能。次回update時に反映＆すべて破棄
         void registObstacleCircle(Vec2 pos, double radius)
         {
-            obstacleCircles.emplace_back(Works::Circle(pos, radius));
+            obstacleCircles.emplace_back(MyMath::Circle(pos, radius));
         }
 
 
-        // 【メソッド】衝突判定の図形を登録（凸多角形。全ての内角は180°以内）
+        // 【メソッド】衝突判定の図形を登録（凸多角形。全ての内角は180°以下）
         // 順次登録可能。次回update時に反映＆すべて破棄。
         // 処理速度優先のため、細長い部分は「壁抜け」が発生する。問題がある場合は、
         // 図形をそこだけ「線分」で構成するとよい（registObstacleLineは正確）
