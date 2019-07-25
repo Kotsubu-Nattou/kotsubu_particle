@@ -34,8 +34,8 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////
 // 【クラス】MyMath
 //
-class MyMath {
-
+class MyMath
+{
 #ifdef USE_STRUCT_VEC
     using Vec2 = VEC2<double>;  // クラスstruct_vecのVEC2
 #endif
@@ -43,7 +43,7 @@ class MyMath {
 
 
 public:
-    // 【構造体】汎用
+    // 【構造体】図形定義用
     struct Line
     {
         Vec2 startPos, endPos;
@@ -68,7 +68,7 @@ public:
 
 
 
-    // 【定数】数学用
+    // 【定数】数学一般
     static constexpr double Epsilon    = 0.00001;           // これ未満を0とする
     static constexpr double Pi         = 3.141592653589793; // π
     static constexpr double TwoPi      = Pi * 2.0;          // Radianの最大値
@@ -95,7 +95,7 @@ public:
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // @@@ 数学メソッド
+    // 数学メソッド
 
     // 【メソッド】sin（テーブル引き）
     double sin(double radian)
@@ -281,97 +281,96 @@ public:
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // @@@ 衝突判定
-
-    // 【メソッド】交差判定。線分と線分
-    // ＜引数＞
-    // posA --- 線分1の始点
-    // posB --- 線分1の終点
-    // posC --- 線分2の始点
-    // posD --- 線分2の終点
-    bool isHit_lineOnLine(Vec2 posA, Vec2 posB, Vec2 posC, Vec2 posD)
+    // 【クラス内クラス】衝突判定
+    //
+    class Hit
     {
-        Vec2 vecAB(posB - posA);
-        Vec2 vecCD(posD - posC);
-        Vec2 vecAC(posC - posA);
-        Vec2 vecAD(posD - posA);
-        Vec2 vecCA(posA - posC);
-        Vec2 vecCB(posB - posC);
+    public:
+        // 【メソッド】交差判定。線分と線分
+        // ＜引数＞
+        // posA --- 線分1の始点
+        // posB --- 線分1の終点
+        // posC --- 線分2の始点
+        // posD --- 線分2の終点
+        bool lineOnLine(Vec2 posA, Vec2 posB, Vec2 posC, Vec2 posD)
+        {
+            Vec2 vecAB(posB - posA);
+            Vec2 vecCD(posD - posC);
+            Vec2 vecAC(posC - posA);
+            Vec2 vecAD(posD - posA);
+            Vec2 vecCA(posA - posC);
+            Vec2 vecCB(posB - posC);
 
-        return (outerProduct(vecAB, vecAC) * outerProduct(vecAB, vecAD) < 0.0) &&
-               (outerProduct(vecCD, vecCA) * outerProduct(vecCD, vecCB) < 0.0);
-    }
-
-
-
-    // 【メソッド】交差判定。線分とスクリーン横軸
-    // ＜引数＞
-    // lineStartY  --- 線分の始点y
-    // lineEndY    --- 線分の終点y
-    // horizontalY --- 横軸のy座標
-    bool isHit_lineOnHorizontal(double lineStartY, double lineEndY, double horizontalY)
-    {
-        double a = horizontalY - lineStartY;
-        double b = horizontalY - lineEndY;
-        return a * b < 0.0;
-    }
-
-
-
-    // 【メソッド】交差判定。線分とスクリーン縦軸
-    // ＜引数＞
-    // lineStartX --- 線分の始点x
-    // lineEndX   --- 線分の終点x
-    // verticalX  --- 縦軸のx座標
-    bool isHit_lineOnVertical(double lineStartX, double lineEndX, double verticalX)
-    {
-        double a = verticalX - lineStartX;
-        double b = verticalX - lineEndX;
-        return a * b < 0.0;
-    }
-
-
-
-    // 【メソッド】内包判定。点と矩形
-    // ＜引数＞
-    // point --- 点の座標
-    // boxLeft, boxTop, boxRight, boxBottom --- 矩形の座標
-    bool isHit_pointInBox(Vec2 point, double boxLeft, double boxTop, double boxRight, double boxBottom)
-    {
-        return (point.x >= boxLeft)  && (point.y >= boxTop) && 
-               (point.x <  boxRight) && (point.y <  boxBottom);
-    }
-
-    bool isHit_pointInBox(Vec2 point, Rect box)
-    {
-        return isHit_pointInBox(point, box.left, box.top, box.right, box.bottom);
-    }
-
-
-
-    // 【メソッド】内包判定。点と多角形（すべての辺の内側かどうか）
-    // ＜引数＞
-    // point    --- 点の座標
-    // vertices --- 多角形を構成する頂点。vector<Vec2>
-    // ＜補足＞
-    // 正しい結果を得るには、頂点が右回り（左回りなら結果は逆）、閉じた図形、全ての内角は180°以下であること。
-    // 上記の条件を満たさない場合は、エラーにならず不定な動作となる
-    bool isHit_pointInPolygon(Vec2 point, const std::vector<Vec2>& vertices)
-    {
-        bool isInside = true;
-        int edgeQty = vertices.size() - 1;
-
-        // 頂点nと頂点n+1を結ぶ辺から見て、点が「左側」にあった時点で判定をやめる
-        for (int i = 0; i < edgeQty; ++i) {
-            Line edge(vertices[i], vertices[i + 1]);
-            if (outerProduct(edge.endPos - edge.startPos, point - edge.startPos) < 0.0) {
-                isInside = false;
-                break;
-            }
+            return (outerProduct(vecAB, vecAC) * outerProduct(vecAB, vecAD) < 0.0) &&
+                   (outerProduct(vecCD, vecCA) * outerProduct(vecCD, vecCB) < 0.0);
         }
 
-        return isInside;
-    }
+
+
+        // 【メソッド】交差判定。線分とスクリーン横軸
+        // ＜引数＞
+        // lineStartY  --- 線分の始点y
+        // lineEndY    --- 線分の終点y
+        // horizontalY --- 横軸のy座標
+        bool lineOnHorizontal(double lineStartY, double lineEndY, double horizontalY)
+        {
+            double a = horizontalY - lineStartY;
+            double b = horizontalY - lineEndY;
+            return a * b < 0.0;
+        }
+
+
+
+        // 【メソッド】交差判定。線分とスクリーン縦軸
+        // ＜引数＞
+        // lineStartX --- 線分の始点x
+        // lineEndX   --- 線分の終点x
+        // verticalX  --- 縦軸のx座標
+        bool lineOnVertical(double lineStartX, double lineEndX, double verticalX)
+        {
+            double a = verticalX - lineStartX;
+            double b = verticalX - lineEndX;
+            return a * b < 0.0;
+        }
+
+
+
+        // 【メソッド】内包判定。点と矩形
+        // ＜引数＞
+        // point --- 点の座標
+        // boxLeft, boxTop, boxRight, boxBottom --- 矩形の座標
+        bool pointInBox(Vec2 point, double boxLeft, double boxTop, double boxRight, double boxBottom)
+        {
+            return (point.x >= boxLeft) && (point.y >= boxTop) &&
+                   (point.x < boxRight) && (point.y < boxBottom);
+        }
+
+        bool pointInBox(Vec2 point, Rect box)
+        {
+            return pointInBox(point, box.left, box.top, box.right, box.bottom);
+        }
+
+
+
+        // 【メソッド】内包判定。点と多角形（すべての辺の内側かどうか）
+        // ＜引数＞
+        // point    --- 点の座標
+        // vertices --- 多角形を構成する頂点。vector<Vec2>
+        // ＜補足＞
+        // 正しい結果を得るには、頂点が右回り（左回りなら結果は逆）、閉じた図形、全ての内角は180°以下であること。
+        // 上記の条件を満たさない場合は、エラーにならず不定な動作となる
+        bool pointInPolygon(Vec2 point, const std::vector<Vec2>& vertices)
+        {
+            // 頂点nと頂点n+1を結ぶ辺から見て、点が「左側」にあった時点で判定をやめる
+            for (int i = 0, edgeQty = vertices.size() - 1; i < edgeQty; ++i) {
+                Line edge(vertices[i], vertices[i + 1]);
+                if (outerProduct(edge.endPos - edge.startPos, point - edge.startPos) < 0.0)
+                    return false;
+            }
+            return true;
+        }
+
+    } hit;
 
 
 

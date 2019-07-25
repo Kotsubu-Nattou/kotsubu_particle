@@ -272,7 +272,7 @@ namespace Particle2D
 
             for (auto& elm : elements) {
                 for (auto& line : obstacleLines) {
-                    if (math.isHit_lineOnLine(line.startPos, line.endPos, elm.oldPos, elm.pos)) {
+                    if (math.hit.lineOnLine(line.startPos, line.endPos, elm.oldPos, elm.pos)) {
                         fadeoutAlpha(elm, AlphaFadeRatio);
                         if (elm.enable) {
                             double rad = math.direction(line.endPos - line.startPos);
@@ -295,11 +295,11 @@ namespace Particle2D
 
             for (auto& elm : elements) {
                 for (auto& rect : obstacleRects) {
-                    if (math.isHit_pointInBox(elm.pos, rect)) {
+                    if (math.hit.pointInBox(elm.pos, rect)) {
                         fadeoutAlpha(elm, AlphaFadeRatio);
                         if (elm.enable) {
-                            if (math.isHit_lineOnHorizontal(elm.oldPos.y, elm.pos.y, rect.top) ||
-                                math.isHit_lineOnHorizontal(elm.oldPos.y, elm.pos.y, rect.bottom)) {
+                            if (math.hit.lineOnHorizontal(elm.oldPos.y, elm.pos.y, rect.top) ||
+                                math.hit.lineOnHorizontal(elm.oldPos.y, elm.pos.y, rect.bottom)) {
                                 reverseDirection(elm, 0.0, timeScale);
                             }
                             else {
@@ -349,31 +349,27 @@ namespace Particle2D
 
             for (auto& elm : elements) {
                 for (auto& vertices : obstaclePolygons) {
-                    int edgeQty = vertices.size() - 1;
-                    // @ 内包判定
-                    // 頂点nと頂点n+1を結ぶ辺から見て、粒子が「左側」なら判定をやめる
-                    if (!math.isHit_pointInPolygon(elm.pos, vertices)) continue;
-
-                    // @ ここまで来たらHit
-                    // どの辺と交差したかを調べて跳ね返す
-                    bool isIntersect = false;
-                    for (int i = 0; i < edgeQty; ++i) {
-                        MyMath::Line edge(vertices[i], vertices[i + 1]);
-                        if (math.isHit_lineOnLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
-                            fadeoutAlpha(elm, AlphaFadeRatio);
-                            if (elm.enable) {
-                                double rad = math.direction(edge.endPos - edge.startPos);
-                                reverseDirection(elm, rad, timeScale);
-                                elm.pos = elm.oldPos;
-                                isIntersect = true;
+                    if (math.hit.pointInPolygon(elm.pos, vertices)) {
+                        // どの辺と交差したかを調べて跳ね返す
+                        bool isIntersect = false;
+                        for (int i = 0, edgeQty = vertices.size() - 1; i < edgeQty; ++i) {
+                            MyMath::Line edge(vertices[i], vertices[i + 1]);
+                            if (math.hit.lineOnLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
+                                fadeoutAlpha(elm, AlphaFadeRatio);
+                                if (elm.enable) {
+                                    double rad = math.direction(edge.endPos - edge.startPos);
+                                    reverseDirection(elm, rad, timeScale);
+                                    elm.pos = elm.oldPos;
+                                    isIntersect = true;
+                                }
+                                break;
                             }
-                            break;
                         }
+                        // 交差している辺が無い（図形の内部）なら、図形の外に出ない限り
+                        // 上の処理が行われ続けて重くなるので、粒子を消す
+                        elm.enable = isIntersect;
+                        break;
                     }
-                    // 交差している辺が無い（図形の内部）なら、図形の外に出ない限り
-                    // 上の処理が行われ続けて重くなるので、粒子を消す
-                    elm.enable = isIntersect;
-                    break;
                 }
             }
         }
@@ -389,10 +385,9 @@ namespace Particle2D
             for (auto& elm : elements) {
                 for (auto& vertices : obstaclePolylines) {
                     bool isIntersect = false;
-                    int edgeQty = vertices.size() - 1;
-                    for (int i = 0; i < edgeQty; ++i) {
+                    for (int i = 0, edgeQty = vertices.size() - 1; i < edgeQty; ++i) {
                         MyMath::Line edge(vertices[i], vertices[i + 1]);
-                        if (math.isHit_lineOnLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
+                        if (math.hit.lineOnLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
                             fadeoutAlpha(elm, AlphaFadeRatio);
                             if (elm.enable) {
                                 double rad = math.direction(edge.endPos - edge.startPos);
