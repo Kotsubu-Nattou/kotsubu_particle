@@ -14,7 +14,7 @@
   n = MyMath::Pi;                         // 定数はインクルードするだけで利用可能
   MyMath &math = MyMath::getInstance();   // インスタンスを取得。これで全てのメンバにアクセス可能
   n = math.direction(v);                  // 数学一般
-  if (math.hit.lineOnline(lineA, lineB))  // 衝突判定（.hitはクラス内クラスで実装）
+  if (math.hit.lineOnline(lineA, lineB))  // 衝突判定（.hitは内部クラスで実装）
 **************************************************************************************************/
 
 #pragma once
@@ -313,14 +313,14 @@ public:
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // 【クラス内クラス】直角三角形の要素
+    // 【内部クラス】直角三角形の要素
     // このクラスは、実用性よりもコードのサンプルとして使うことを想定
     //
     class RightTriangle
     {
     public:
         // 【メソッド】底辺の長さを返す（直角三角形と内積）
-        // 斜辺ab、底辺bc（どんな長さでもよい）を指定する。
+        // 斜辺ab、底辺bc（どんな長さでもよい）、それぞれ座標を指定する。
         // 斜辺はそのままで直角三角形を定義。その底辺の長さを返す
         static double baseLen(Vec2 a, Vec2 b, Vec2 c)
         {
@@ -339,9 +339,45 @@ public:
 
 
         // 【メソッド】高さを返す（直角三角形と外積）
-        static double height()
+        // 斜辺ab、底辺bc（どんな長さでもよい）、それぞれ座標を指定する。
+        // 斜辺はそのままで直角三角形を定義。その高さを返す
+        static double height(Vec2 a, Vec2 b, Vec2 c)
         {
+            // ふつうの三角形を定義
+            Vec2 abV(a - b);             // 斜辺ベクトル
+            Vec2 bcV(c - b);             // 底辺ベクトル
+            double bcLen = length(bcV);  // 底辺の長さ（まだ直角三角形にしたときの底辺は不明）
+            if (bcLen < Epsilon) return 0.0;
 
+            // 直角三角形の高さ = abとbcの外積を、bc長で割る。
+            // これは、点aと線分bcの「垂線」と同様。
+            // 点が線分の「左右どちらにあるかで符号が変わる」ためabsする
+            return abs(outerProduct(abV, bcV)) / bcLen;
+        }
+
+
+
+        // 【メソッド】斜辺の長さを返す（三平方の定理）
+        // ＜引数＞ 斜辺abの座標
+        static double hypotLen(Vec2 a, Vec2 b)
+        {
+            Vec2 v(a - b);
+
+            return sqrt(v.x * v.x + v.y * v.y);
+        }
+
+
+ 
+        // 【メソッド】斜辺と底辺のなす角を返す（三角関数）
+        // ＜引数＞
+        // 斜辺ab、底辺bcの座標（それぞれどんな長さでもよい）
+        // mathは、内部クラスから親クラスの静的ではないメソッド利用のために必要
+        double hypotAngle(Vec2 a, Vec2 b, Vec2 c, MyMath& math)
+        {
+            Vec2 abV(a - b);  // 斜辺ベクトル
+            Vec2 bcV(c - b);  // 底辺ベクトル
+
+            return math.angle(abV, bcV);
         }
 
     } rightTriangle;
@@ -351,7 +387,7 @@ public:
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // 【クラス内クラス】点と線分の関係
+    // 【内部クラス】点と線分の関係
     // このクラスは、実用性よりもコードのサンプルとして使うことを想定
     //
     class PointToLine
@@ -375,9 +411,9 @@ public:
             // 点⇔線分終点を結ぶ辺が「鋭角」なら、終点が最も近い
             if (innerProduct(point - line.endPos, lineV) >= 0.0)
                 return MyMath::distance(point, line.endPos);
-
+            
             // 上記以外（交点が線分上にある）なら、垂線の長さが最短距離
-            return std::abs(outerProduct(point - line.startPos, lineV)) / lineLen;
+            return abs(outerProduct(point - line.startPos, lineV)) / lineLen;
         }
 
 
@@ -402,7 +438,7 @@ public:
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // 【クラス内クラス】衝突判定
+    // 【内部クラス】衝突判定
     //
     class Hit
     {
