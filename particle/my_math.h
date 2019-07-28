@@ -1,19 +1,20 @@
 /**************************************************************************************************
-【ヘッダオンリークラス】my_math
+【ヘッダオンリークラス】kotsubu_math
 
 ・概要
-  数学で使う定数、構造体、メソッドを集めたシングルトン。
-  構造体および、定数と一部のメソッドはstaticなので、インクルードだけで利用可能。
+  数学一般で使用する、定数、構造体、メソッドを集めたシングルトン。
+  構造体および、定数と一部のメソッドはstaticなので、インクルードするだけで利用可能。
   解放は不要（アプリケーション終了時に自動）
-  基本的にベクトルは、OpenSiv3DのVec2で運用することを前提とした。
-  もし、クラスstruct_vecのVEC2を使う場合は、このファイル冒頭、または
-  このファイルをインクルードする前に、"USE_STRUCT_VEC"をdefineしておく。
+  座標は、OpenSiv3DのVec2の使用を前提（もし、クラスstruct_vecのVEC2を使う場合は、この
+  ファイル冒頭、またはこのファイルをインクルードする前に、"USE_STRUCT_VEC"をdefineしておく）
+  その他、一般的な図形の構造体、テーブル引き三角関数、衝突判定、直角三角形の要素を求める、など
 
 ・使い方
-  #include "my_math.h"
-  n = MyMath::Pi;                        // 定数はインクルードするだけで利用可能
-  MyMath &math = MyMath::getInstance();  // 唯一のインスタンスを取得。これで全てのメンバにアクセス可能
-  n = math.direction(v);
+  #include "kotsubu_math.h"
+  n = MyMath::Pi;                         // 定数はインクルードするだけで利用可能
+  MyMath &math = MyMath::getInstance();   // インスタンスを取得。これで全てのメンバにアクセス可能
+  n = math.direction(v);                  // 数学一般
+  if (math.hit.lineOnline(lineA, lineB))  // 衝突判定（.hitはクラス内クラスで実装）
 **************************************************************************************************/
 
 #pragma once
@@ -223,15 +224,6 @@ public:
 
     // 【メソッド】ベクトルの向きを返す（スクリーン座標系。atan2の代わりに使えて高速）
     // ＜戻り値＞ -180°から180°のradian
-    double direction(Vec2 v)
-    {
-        return direction(v.x, v.y);
-    }
-
-
-
-    // 【メソッド】ベクトルの向きを返す（スクリーン座標系。atan2の代わりに使えて高速）
-    // ＜戻り値＞ -180°から180°のradian
     double direction(double vx, double vy)
     {
         double len = sqrt(vx * vx + vy * vy);
@@ -240,6 +232,11 @@ public:
         // 基準の軸は、成分x=1,y=0なので、数式がとても簡単
         double cosVal = vx / len;  // 「内積/長さ」で余弦値を求める
         return (vy < 0.0) ? -acos(cosVal) : acos(cosVal);  // 外積を見て、360度角を得る
+    }
+
+    double direction(Vec2 v)
+    {
+        return direction(v.x, v.y);
     }
 
 
@@ -254,18 +251,15 @@ public:
 
 
     // 【メソッド】ベクトルを回転して返す
-    Vec2 rotation(Vec2 v, double radian)
-    {
-        return rotation(v, sin(radian), cos(radian));
-    }
-
-
-
-    // 【メソッド】ベクトルを回転して返す
     static Vec2 rotation(Vec2 v, double sinVal, double cosVal)
     {
         return { v.x * cosVal - v.y * sinVal,
                  v.x * sinVal + v.y * cosVal };
+    }
+
+    Vec2 rotation(Vec2 v, double radian)
+    {
+        return rotation(v, sin(radian), cos(radian));
     }
 
 
@@ -277,6 +271,133 @@ public:
         // 式。「壁となる軸の角度 * 2」から入射角を引く
         return fmod(reflectionAxisRad * Two - incidenceRad, TwoPi);
     }
+
+
+
+    // 【メソッド】「割る数」を「掛ける数」に変換
+    static double convDiv2Mul(double divVal)
+    {
+        return 1.0 / divVal;
+    }
+
+
+
+    // 【メソッド】度数をラジアンに変換
+    // 0～2πの範囲に整形する。通常は degree * MyMath::Deg2Rad でよい
+    static double convRadian(double degree)
+    {
+        if (degree < 0.0) {
+            degree = fmod(degree, 360.0) + 360.0;
+            if (degree == 360.0) degree = 0.0;
+        }
+        else if (degree >= 360.0)
+            degree = fmod(degree, 360.0);
+
+        return degree * Deg2Rad;
+    }
+
+
+
+    // 【メソッド】度数の角度範囲をラジアンに変換
+    // 0～2πの範囲に整形する
+    static double convRadianRange(double degreeRange)
+    {
+        if (degreeRange <   0.0) degreeRange = 0.0;
+        if (degreeRange > 360.0) degreeRange = 360.0;
+
+        return degreeRange * Deg2Rad;
+    }
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // 【クラス内クラス】直角三角形の要素
+    // このクラスは、実用性よりもコードのサンプルとして使うことを想定
+    //
+    class RightTriangle
+    {
+    public:
+        // 【メソッド】底辺の長さを返す（直角三角形と内積）
+        // 斜辺ab、底辺bc（どんな長さでもよい）を指定する。
+        // 斜辺はそのままで直角三角形を定義。その底辺の長さを返す
+        static double baseLen(Vec2 a, Vec2 b, Vec2 c)
+        {
+            // ふつうの三角形を定義
+            Vec2 abV(a - b);             // 斜辺ベクトル
+            Vec2 bcV(c - b);             // 底辺ベクトル
+            double bcLen = length(bcV);  // 底辺の長さ（まだ直角三角形にしたときの底辺は不明）
+            if (bcLen < Epsilon) return 0.0;
+
+            // 直角三角形の底辺長 = abとbcの内積を、bc長で割る。
+            // これは、斜辺を線分bcに正投影したときの「影の長さ」に相当。
+            // もし、影が逆方向（線分始点より手前。鈍角）なら負の数になる
+            return innerProduct(abV, bcV) / bcLen;
+        }
+
+
+
+        // 【メソッド】高さを返す（直角三角形と外積）
+        static double height()
+        {
+
+        }
+
+    } rightTriangle;
+
+
+
+
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // 【クラス内クラス】点と線分の関係
+    // このクラスは、実用性よりもコードのサンプルとして使うことを想定
+    //
+    class PointToLine
+    {
+    public:
+        // 【メソッド】最短距離を返す（点と線分）
+        // まず、点⇔直線を結ぶ垂線を考える。
+        // 交点が線分上にあるなら、垂線の長さが「最短距離」となる。
+        // 線分上に無いなら、近いほうの線分端までが「最短距離」となる。
+        // また、戻り値が、ある半径以下かどうかを見て「円と線分の衝突判定」に利用できる
+        static double distance(Vec2 point, Line line)
+        {
+            Vec2   lineV(line.endPos - line.startPos);
+            double lineLen = length(lineV);
+            if (lineLen < Epsilon) return 0.0;
+
+            // 点⇔線分始点を結ぶ辺が「鈍角」なら、始点が最も近い
+            if (innerProduct(point - line.startPos, lineV) < 0.0)
+                return MyMath::distance(point, line.startPos);
+
+            // 点⇔線分終点を結ぶ辺が「鋭角」なら、終点が最も近い
+            if (innerProduct(point - line.endPos, lineV) >= 0.0)
+                return MyMath::distance(point, line.endPos);
+
+            // 上記以外（交点が線分上にある）なら、垂線の長さが最短距離
+            return std::abs(outerProduct(point - line.startPos, lineV)) / lineLen;
+        }
+
+
+
+        // 【メソッド】垂線の交点を返す（点と線分）
+        // まず、点⇔直線を結ぶ垂線を考える。
+        // 交点が線分始点より手前（鈍角）なら負の数。それ以外なら正の数を返す
+        static Vec2 crosspoint(Vec2 point, Line line)
+        {
+            Vec2   lineV(line.endPos - line.startPos);
+            double lineLen = length(lineV);
+            if (lineLen < Epsilon) return Vec2(0.0, 0.0);
+
+            // 線分始点 + (lineベクトル * lineベクトルの割合) <-- 影の長さに相当
+            return line.startPos + lineV * innerProduct(point - line.startPos, lineV) / lineLen;
+        }
+
+    } pointToLine;
+
+
 
 
 
@@ -292,7 +413,7 @@ public:
         // posB --- 線分1の終点
         // posC --- 線分2の始点
         // posD --- 線分2の終点
-        bool lineOnLine(Vec2 posA, Vec2 posB, Vec2 posC, Vec2 posD)
+        static bool lineOnLine(Vec2 posA, Vec2 posB, Vec2 posC, Vec2 posD)
         {
             Vec2 vecAB(posB - posA);
             Vec2 vecCD(posD - posC);
@@ -300,9 +421,14 @@ public:
             Vec2 vecAD(posD - posA);
             Vec2 vecCA(posA - posC);
             Vec2 vecCB(posB - posC);
-
+            
             return (outerProduct(vecAB, vecAC) * outerProduct(vecAB, vecAD) < 0.0) &&
                    (outerProduct(vecCD, vecCA) * outerProduct(vecCD, vecCB) < 0.0);
+        }
+
+        static bool lineOnLine(Line lineA, Line lineB)
+        {
+            return lineOnLine(lineA.startPos, lineA.endPos, lineB.startPos, lineB.endPos);
         }
 
 
@@ -312,7 +438,7 @@ public:
         // lineStartY  --- 線分の始点y
         // lineEndY    --- 線分の終点y
         // horizontalY --- 横軸のy座標
-        bool lineOnHorizontal(double lineStartY, double lineEndY, double horizontalY)
+        static bool lineOnHorizontal(double lineStartY, double lineEndY, double horizontalY)
         {
             double a = horizontalY - lineStartY;
             double b = horizontalY - lineEndY;
@@ -326,7 +452,7 @@ public:
         // lineStartX --- 線分の始点x
         // lineEndX   --- 線分の終点x
         // verticalX  --- 縦軸のx座標
-        bool lineOnVertical(double lineStartX, double lineEndX, double verticalX)
+        static bool lineOnVertical(double lineStartX, double lineEndX, double verticalX)
         {
             double a = verticalX - lineStartX;
             double b = verticalX - lineEndX;
@@ -339,13 +465,13 @@ public:
         // ＜引数＞
         // point --- 点の座標
         // boxLeft, boxTop, boxRight, boxBottom --- 矩形の座標
-        bool pointInBox(Vec2 point, double boxLeft, double boxTop, double boxRight, double boxBottom)
+        static bool pointInBox(Vec2 point, double boxLeft, double boxTop, double boxRight, double boxBottom)
         {
             return (point.x >= boxLeft) && (point.y >= boxTop) &&
                    (point.x < boxRight) && (point.y < boxBottom);
         }
 
-        bool pointInBox(Vec2 point, Rect box)
+        static bool pointInBox(Vec2 point, Rect box)
         {
             return pointInBox(point, box.left, box.top, box.right, box.bottom);
         }
@@ -359,7 +485,7 @@ public:
         // ＜補足＞
         // 正しい結果を得るには、頂点が右回り（左回りなら結果は逆）、閉じた図形、全ての内角は180°以下であること。
         // 上記の条件を満たさない場合は、エラーにならず不定な動作となる
-        bool pointInPolygon(Vec2 point, const std::vector<Vec2>& vertices)
+        static bool pointInPolygon(Vec2 point, const std::vector<Vec2>& vertices)
         {
             // 頂点nと頂点n+1を結ぶ辺から見て、点が「左側」にあった時点で判定をやめる
             for (int i = 0, edgeQty = vertices.size() - 1; i < edgeQty; ++i) {

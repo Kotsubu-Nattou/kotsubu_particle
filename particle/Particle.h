@@ -119,27 +119,6 @@ namespace Particle2D
             return power;
         }
 
-        double convRadian(double degree)
-        {
-            if (degree < 0.0) {
-                degree = fmod(degree, 360.0) + 360.0;
-                if (degree == 360.0) degree = 0.0;
-            }
-            else if (degree >= 360.0)
-                degree = fmod(degree, 360.0);
-
-            return degree * Deg2Rad;
-        }
-
-
-        double convRadianRange(double degree)
-        {
-            if (degree <   0.0) degree = 0.0;
-            if (degree > 360.0) degree = 360.0;
-
-            return degree * Deg2Rad;
-        }
-
 
         // 【内部メソッド】解像度を、座標スケールに変換
         double convReso2Scale(double resolution)
@@ -410,7 +389,7 @@ namespace Particle2D
         void reverseDirection(Element& element, double reflectionAxisRad, double timeScale)
         {
             Vec2 move = element.pos - element.oldPos;
-
+            
             // 進行方向を反転
             // このプログラムの移動処理は、element.radianとgravityRadの
             // 「2系統」を合算して、実際の「見た目の方向」となる。
@@ -549,18 +528,18 @@ namespace Particle2D
 
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Circle& pos(         Vec2   pos)    { property.pos         = pos;                     return *this; }
-        Circle& size(        double size)   { property.size        = fixSize(size);           return *this; }
-        Circle& speed(       double speed)  { property.speed       = fixSpeed(speed);         return *this; }
-        Circle& color(       ColorF color)  { property.color       = color;                   return *this; }
-        Circle& angle(       double degree) { property.radian      = convRadian(degree);      return *this; }
-        Circle& angleRange(  double degree) { property.radianRange = convRadianRange(degree); return *this; }
-        Circle& accelSize(   double size)   { property.accelSize   = size;                    return *this; }
-        Circle& accelSpeed(  double speed)  { property.accelSpeed  = speed;                   return *this; }
-        Circle& accelColor(  ColorF color)  { property.accelColor  = color;                   return *this; }
-        Circle& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);  return *this; }
-        Circle& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
-        Circle& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
+        Circle& pos(         Vec2   pos)    { property.pos         = pos;                          return *this; }
+        Circle& size(        double size)   { property.size        = fixSize(size);                return *this; }
+        Circle& speed(       double speed)  { property.speed       = fixSpeed(speed);              return *this; }
+        Circle& color(       ColorF color)  { property.color       = color;                        return *this; }
+        Circle& angle(       double degree) { property.radian      = math.convRadian(degree);      return *this; }
+        Circle& angleRange(  double degree) { property.radianRange = math.convRadianRange(degree); return *this; }
+        Circle& accelSize(   double size)   { property.accelSize   = size;                         return *this; }
+        Circle& accelSpeed(  double speed)  { property.accelSpeed  = speed;                        return *this; }
+        Circle& accelColor(  ColorF color)  { property.accelColor  = color;                        return *this; }
+        Circle& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);       return *this; }
+        Circle& gravityAngle(double degree) { property.gravityRad  = math.convRadian(degree);      return *this; }
+        Circle& random(      double power)  { property.randPow     = fixRandomPower(power);        return *this; }
         Circle& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
 
 
@@ -773,16 +752,16 @@ namespace Particle2D
 
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Dot& pos(         Vec2   pos)    { property.pos         = pos;                     return *this; }
-        Dot& speed(       double speed)  { property.speed       = fixSpeed(speed);         return *this; }
-        Dot& color(       ColorF color)  { property.color       = color;                   return *this; }
-        Dot& angle(       double degree) { property.radian      = convRadian(degree);      return *this; }
-        Dot& angleRange(  double degree) { property.radianRange = convRadianRange(degree); return *this; }
-        Dot& accelSpeed(  double speed)  { property.accelSpeed  = speed;                   return *this; }
-        Dot& accelColor(  ColorF color)  { property.accelColor  = color;                   return *this; }
-        Dot& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);  return *this; }
-        Dot& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
-        Dot& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
+        Dot& pos(         Vec2   pos)    { property.pos         = pos;                          return *this; }
+        Dot& speed(       double speed)  { property.speed       = fixSpeed(speed);              return *this; }
+        Dot& color(       ColorF color)  { property.color       = color;                        return *this; }
+        Dot& angle(       double degree) { property.radian      = math.convRadian(degree);      return *this; }
+        Dot& angleRange(  double degree) { property.radianRange = math.convRadianRange(degree); return *this; }
+        Dot& accelSpeed(  double speed)  { property.accelSpeed  = speed;                        return *this; }
+        Dot& accelColor(  ColorF color)  { property.accelColor  = color;                        return *this; }
+        Dot& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);       return *this; }
+        Dot& gravityAngle(double degree) { property.gravityRad  = math.convRadian(degree);      return *this; }
+        Dot& random(      double power)  { property.randPow     = fixRandomPower(power);        return *this; }
         Dot& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
 
         // スムージング
@@ -1014,19 +993,19 @@ namespace Particle2D
 
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Star& pos(         Vec2   pos)    { property.pos         = pos;                     return *this; }
-        Star& size(        double size)   { property.size        = fixSize(size);           return *this; }
-        Star& speed(       double speed)  { property.speed       = fixSpeed(speed);         return *this; }
-        Star& color(       ColorF color)  { property.color       = color;                   return *this; }
-        Star& angle(       double degree) { property.radian      = convRadian(degree);      return *this; }
-        Star& angleRange(  double degree) { property.radianRange = convRadianRange(degree); return *this; }
-        Star& accelSize(   double size)   { property.accelSize   = size;                    return *this; }
-        Star& accelSpeed(  double speed)  { property.accelSpeed  = speed;                   return *this; }
-        Star& accelColor(  ColorF color)  { property.accelColor  = color;                   return *this; }
-        Star& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);  return *this; }
-        Star& gravityAngle(double degree) { property.gravityRad  = convRadian(degree);      return *this; }
-        Star& random(      double power)  { property.randPow     = fixRandomPower(power);   return *this; }
-        Star& rotate(      double speed)  { property.rotateSpeed = speed;                   return *this; }
+        Star& pos(         Vec2   pos)    { property.pos         = pos;                          return *this; }
+        Star& size(        double size)   { property.size        = fixSize(size);                return *this; }
+        Star& speed(       double speed)  { property.speed       = fixSpeed(speed);              return *this; }
+        Star& color(       ColorF color)  { property.color       = color;                        return *this; }
+        Star& angle(       double degree) { property.radian      = math.convRadian(degree);      return *this; }
+        Star& angleRange(  double degree) { property.radianRange = math.convRadianRange(degree); return *this; }
+        Star& accelSize(   double size)   { property.accelSize   = size;                         return *this; }
+        Star& accelSpeed(  double speed)  { property.accelSpeed  = speed;                        return *this; }
+        Star& accelColor(  ColorF color)  { property.accelColor  = color;                        return *this; }
+        Star& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);       return *this; }
+        Star& gravityAngle(double degree) { property.gravityRad  = math.convRadian(degree);      return *this; }
+        Star& random(      double power)  { property.randPow     = fixRandomPower(power);        return *this; }
+        Star& rotate(      double speed)  { property.rotateSpeed = speed;                        return *this; }
         Star& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
 
         
