@@ -179,8 +179,7 @@ public:
         double len = length(v);
         if (len < Epsilon) return v;
 
-        len = One / len;
-        return v *= len;
+        return v *= convDiv2Mul(len);
     }
 
 
@@ -277,7 +276,7 @@ public:
     // 【メソッド】「割る数」を「掛ける数」に変換
     static double convDiv2Mul(double divVal)
     {
-        return 1.0 / divVal;
+        return One / divVal;
     }
 
 
@@ -313,15 +312,25 @@ public:
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // 【内部クラス】直角三角形の要素
+    // 【内部クラス】直角三角形の性質
+    // 直角三角形の定義  ---  ⊿abc, 頂点は上から反時計回りにa,b,cとする。斜辺はab、頂点cは直角
     // このクラスは、実用性よりも学習、コピペ向け
     //
     class RightTriangle
     {
     public:
+        // 【メソッド】斜辺の長さを返す（三平方の定理）
+        // ＜引数＞ 底辺の長さ、高さ
+        static double hypotLen(double baseLen, double height)
+        {
+            return sqrt(baseLen * baseLen + height * height);
+        }
+
+
+
         // 【メソッド】底辺の長さを返す
         // 斜辺abと長さ不定の底辺bcから直角三角形を定義して、底辺の長さを算出する（内積）
-        // ＜引数＞ 斜辺ab、底辺bcの座標（底辺の長さは仮でよい）
+        // ＜引数＞ 斜辺ab、底辺bcの座標（底辺の長さは適当でよい）
         static double baseLen(Vec2 a, Vec2 b, Vec2 c)
         {
             // ふつうの三角形を定義
@@ -331,7 +340,7 @@ public:
             if (bcLen < Epsilon) return 0.0;
 
             // 直角三角形の底辺長 = abとbcの内積を、bc長で割る。
-            // これは、斜辺を線分bcに正投影したときの「影の長さ」に相当。
+            // これは、斜辺を線分に正投影したときの「影の長さ」に相当。
             // もし、影が逆方向（線分始点より手前。鈍角）なら負の数になる
             return innerProduct(abV, bcV) / bcLen;
         }
@@ -339,14 +348,14 @@ public:
 
 
         // 【メソッド】底辺の長さを返す
-        // 斜辺abと∠abc(斜辺と底辺の内角)から直角三角形を定義して、底辺の長さを算出する
-        // ＜引数＞ 斜辺abの座標、∠abcの弧度(斜辺と底辺の内角)
-        double baseLen(Vec2 a, Vec2 b, double abcRadian)
+        // 斜辺abと傾き(斜辺と底辺の内角)から直角三角形を定義して、底辺の長さを算出する
+        // ＜引数＞ 斜辺abの座標、傾き(斜辺と底辺の内角)の弧度
+        double baseLen(Vec2 a, Vec2 b, double hypotTilt)
         {
             MyMath& math = getInstance();  // 親クラスの静的ではないメソッドを利用する
             Vec2   abV(a - b);                                  // 斜辺ベクトル
             double abDir = math.direction(abV);                 // 斜辺の傾き
-            double bcDir = fmod(abDir + abcRadian, TwoPi);      // 底辺の傾き
+            double bcDir = fmod(abDir + hypotTilt, TwoPi);      // 底辺の傾き
             Vec2   bcNormal(math.cos(bcDir), math.sin(bcDir));  // 底辺の正規化ベクトル
 
             // 直角三角形の底辺長 = abと正規化bcの内積
@@ -359,7 +368,7 @@ public:
 
         // 【メソッド】高さを返す
         // 斜辺abと長さ不定の底辺bcから直角三角形を定義して、高さを算出する（外積）
-        // ＜引数＞ 斜辺ab、底辺bcの座標（底辺の長さは仮でよい）
+        // ＜引数＞ 斜辺ab、底辺bcの座標（底辺の長さは適当でよい）
         static double height(Vec2 a, Vec2 b, Vec2 c)
         {
             // ふつうの三角形を定義
@@ -369,7 +378,7 @@ public:
             if (bcLen < Epsilon) return 0.0;
 
             // 直角三角形の高さ = abとbcの外積を、bc長で割る。
-            // これは、点aと線分bcの「垂線」に相当。
+            // これは、点aの線分bcに対する「垂線」に相当。
             // 点が線分の「左右どちらにあるかで符号が変わる」ため絶対値にする
             return abs(outerProduct(abV, bcV) / bcLen);
         }
@@ -377,37 +386,63 @@ public:
 
 
         // 【メソッド】高さを返す
-        // 斜辺abと∠abc(斜辺と底辺の内角)から直角三角形を定義して、高さを算出する
-        // ＜引数＞ 斜辺abの座標、∠abcの弧度(斜辺と底辺の内角)
-        double height(Vec2 a, Vec2 b, double abcRadian)
+        // 斜辺abと傾き(斜辺と底辺の内角)から直角三角形を定義して、底辺の長さを算出する
+        // ＜引数＞ 斜辺abの座標、傾き(斜辺と底辺の内角)の弧度
+        double height(Vec2 a, Vec2 b, double hypotTilt)
         {
             MyMath& math = getInstance();  // 親クラスの静的ではないメソッドを利用する
             Vec2   abV(a - b);                                  // 斜辺ベクトル
             double abDir = math.direction(abV);                 // 斜辺の傾き
-            double bcDir = fmod(abDir + abcRadian, TwoPi);      // 底辺の傾き
+            double bcDir = fmod(abDir + hypotTilt, TwoPi);      // 底辺の傾き
             Vec2   bcNormal(math.cos(bcDir), math.sin(bcDir));  // 底辺の正規化ベクトル
 
             // 直角三角形の底辺長 = abと正規化bcの外積
-            // これは、点aと線分bcの「垂線」に相当。
+            // これは、点aの線分bcに対する「垂線」に相当。
             // 点が線分の「左右どちらにあるかで符号が変わる」ため絶対値にする
             return abs(outerProduct(abV, bcNormal));
         }
 
 
 
-        // 【メソッド】斜辺の長さを返す（三平方の定理）
-        // ＜引数＞ 斜辺abの座標
-        static double hypotLen(Vec2 a, Vec2 b)
+        // 【メソッド】底辺の終端座標を返す
+        // 斜辺abと長さ不定の底辺bcから直角三角形を定義して、底辺終端の座標を算出する。
+        // これは、斜辺を地面に正投影したときの「影の終わりの位置」、または底辺と高さの「交点」に相当。
+        // ＜引数＞ 斜辺ab、底辺bcの座標（底辺の長さは適当でよい）
+        static Vec2 baseEndPos(Vec2 a, Vec2 b, Vec2 c)
         {
-            Vec2 v(a - b);
-            return sqrt(v.x * v.x + v.y * v.y);
+            // ふつうの三角形を定義
+            Vec2 abV(a - b);             // 斜辺ベクトル
+            Vec2 bcV(c - b);             // 底辺ベクトル
+            double bcLen = length(bcV);  // 底辺の長さ（まだ直角三角形にしたときの底辺は不明）
+            if (bcLen < Epsilon) return Vec2(0.0, 0.0);
+
+            // 底辺終端の座標 = 底辺始点 + 底辺ベクトル * その割合
+            return b + bcV * innerProduct(abV, bcV) / (bcLen * bcLen);
+        }
+        
+
+
+        // 【メソッド】底辺の終端座標を返す
+        // 斜辺abと長さ不定の底辺bcから直角三角形を定義して、底辺終端の座標を算出する。
+        // これは、斜辺を地面に正投影したときの「影の終わりの位置」、または底辺と高さの「交点」に相当。
+        // ＜引数＞ 斜辺abの座標、傾き(斜辺と底辺の内角)の弧度
+        Vec2 baseEndPos(Vec2 a, Vec2 b, double hypotTilt)
+        {
+            MyMath& math = getInstance();  // 親クラスの静的ではないメソッドを利用する
+            Vec2   abV(a - b);                                  // 斜辺ベクトル
+            double abDir = math.direction(abV);                 // 斜辺の傾き
+            double bcDir = fmod(abDir + hypotTilt, TwoPi);      // 底辺の傾き
+            Vec2   bcNormal(math.cos(bcDir), math.sin(bcDir));  // 底辺の正規化ベクトル
+
+            // 底辺終端の座標 = 底辺始点 + 底辺の正規化ベクトル * その長さ
+            return b + bcNormal * innerProduct(abV, bcNormal);
         }
 
 
  
-        // 【メソッド】斜辺と底辺のなす角（∠abc）を返す
-        // ＜引数＞ 斜辺ab、底辺bcの座標（それぞれ長さ不定でよい）
-        double hypotAngle(Vec2 a, Vec2 b, Vec2 c)
+        // 【メソッド】斜辺と底辺のなす角（∠b）を返す
+        // ＜引数＞ 斜辺ab、底辺bcの座標（それぞれ長さは適当でよい）
+        double hypotTilt(Vec2 a, Vec2 b, Vec2 c)
         {
             MyMath& math = getInstance();  // 親クラスの静的ではないメソッドを利用する
             Vec2 abV(a - b);  // 斜辺ベクトル
@@ -423,14 +458,14 @@ public:
 
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////
-    // 【内部クラス】点と線分の関係
+    // 【内部クラス】点と線分の性質
     // このクラスは、実用性よりも学習、コピペ向け
     //
     class PointAndLine
     {
     public:
         // 【メソッド】最短距離を返す（点と線分）
-        // まず、点⇔直線を結ぶ垂線を考える。
+        // まず、点の線分に対する「垂線」を考える。
         // 交点が線分上にあるなら、垂線の長さが「最短距離」となる。
         // 線分上に無いなら、近いほうの線分端までが「最短距離」となる。
         // また、戻り値が、ある半径以下かどうかを見て「円と線分の衝突判定」に利用できる
@@ -455,16 +490,11 @@ public:
 
 
         // 【メソッド】垂線の交点を返す（点と線分）
-        // まず、点⇔直線を結ぶ垂線を考える。
-        // 交点が線分始点より手前（鈍角）なら負の数。それ以外なら正の数を返す
-        static Vec2 intersection(Vec2 point, Line line)
+        static Vec2 intersectPos(Vec2 point, Line line)
         {
-            Vec2   lineV(line.endPos - line.startPos);
-            double lineLen = length(lineV);
-            if (lineLen < Epsilon) return Vec2(0.0, 0.0);
-
-            // 交点 = 線分始点 + 影の長さ（lineベクトル * lineベクトルの割合）
-            return line.startPos + lineV * innerProduct(point - line.startPos, lineV) / lineLen;
+            // 直角三角形に置きかえて計算
+            // 垂線の交点 = 線分始点 + 点と線分の内積（影の長さ）
+            return RightTriangle::baseEndPos(point, line.startPos, line.endPos);
         }
 
     } pointAndLine;
