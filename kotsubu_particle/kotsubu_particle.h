@@ -124,13 +124,6 @@ namespace KotsubuParticle
         }
 
 
-        // 【内部メソッド】解像度を、座標スケールに変換
-        double toScale(double resolution)
-        {
-            return One / resolution;
-        }
-
-
         //// 【内部メソッド】無効な粒子を削除（Erase-Removeイディオム）
         //template<typename T>
         //void cleanElements(T& elements)
@@ -173,31 +166,32 @@ namespace KotsubuParticle
         void scalingObstacles(double scale)
         {
             if (scale == 1.0) return;  // 等倍なら帰る
+            double rate = math.inverseNumber(scale);
 
             for (auto& r : obstacleLines) {
-                r.startPos *= scale;
-                r.endPos   *= scale;
+                r.startPos *= rate;
+                r.endPos   *= rate;
             }
             for (auto& r : obstacleRects) {
-                r.left   *= scale;
-                r.top    *= scale;
-                r.right  *= scale;
-                r.bottom *= scale;
+                r.left   *= rate;
+                r.top    *= rate;
+                r.right  *= rate;
+                r.bottom *= rate;
             }
             for (auto& r : obstacleCircles) {
-                r.pos    *= scale;
-                r.radius *= scale;
+                r.pos    *= rate;
+                r.radius *= rate;
             }
             for (auto& polygon : obstaclePolygons) {
                 for (auto& vertex : polygon) {
-                    vertex.x *= scale;
-                    vertex.y *= scale;
+                    vertex.x *= rate;
+                    vertex.y *= rate;
                 }
             }
             for (auto& polyline : obstaclePolylines) {
                 for (auto& vertex : polyline) {
-                    vertex.x *= scale;
-                    vertex.y *= scale;
+                    vertex.x *= rate;
+                    vertex.y *= rate;
                 }
             }
         }
@@ -507,18 +501,18 @@ namespace KotsubuParticle
 
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Circle& pos(         Vec2   pos)    { property.pos         = pos;                        return *this; }
-        Circle& size(        double size)   { property.size        = fixSize(size);              return *this; }
-        Circle& speed(       double speed)  { property.speed       = fixSpeed(speed);            return *this; }
-        Circle& color(       ColorF color)  { property.color       = color;                      return *this; }
-        Circle& angle(       double degree) { property.radian      = math.toRadian(degree);      return *this; }
-        Circle& angleRange(  double degree) { property.radianRange = math.toRadianRange(degree); return *this; }
-        Circle& accelSize(   double size)   { property.accelSize   = size;                       return *this; }
-        Circle& accelSpeed(  double speed)  { property.accelSpeed  = speed;                      return *this; }
-        Circle& accelColor(  ColorF color)  { property.accelColor  = color;                      return *this; }
-        Circle& gravity(     double power)  { property.gravityPower  = fixGravityPower(power);   return *this; }
-        Circle& gravityAngle(double degree) { property.gravityRad  = math.toRadian(degree);      return *this; }
-        Circle& random(      double power)  { property.randPow     = fixRandomPower(power);      return *this; }
+        Circle& pos(         Vec2   pos)    { property.pos          = pos;                        return *this; }
+        Circle& size(        double size)   { property.size         = fixSize(size);              return *this; }
+        Circle& speed(       double speed)  { property.speed        = fixSpeed(speed);            return *this; }
+        Circle& color(       ColorF color)  { property.color        = color;                      return *this; }
+        Circle& angle(       double degree) { property.radian       = math.toRadian(degree);      return *this; }
+        Circle& angleRange(  double degree) { property.radianRange  = math.toRadianRange(degree); return *this; }
+        Circle& accelSize(   double size)   { property.accelSize    = size;                       return *this; }
+        Circle& accelSpeed(  double speed)  { property.accelSpeed   = speed;                      return *this; }
+        Circle& accelColor(  ColorF color)  { property.accelColor   = color;                      return *this; }
+        Circle& gravity(     double power)  { property.gravityPower = fixGravityPower(power);     return *this; }
+        Circle& gravityAngle(double degree) { property.gravityRad   = math.toRadian(degree);      return *this; }
+        Circle& random(      double power)  { property.randPow      = fixRandomPower(power);      return *this; }
         Circle& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
 
 
@@ -705,7 +699,7 @@ namespace KotsubuParticle
     // 点系パーティクルの元となるクラス。他の点系パーティクルはこれを拡張（継承）したもの。
     // 最も多くのパーティクルを描画できる。ただし、このクラスはパーティクル数が
     // 「0」でも画面全体のイメージを複製＆描画するため、最低負荷は高め。
-    // resolutionメソッドで 1.0～8.0 が指定でき、高いほど粗くなる代わりに負荷を軽減できる。
+    // dotScaleメソッドでドットの拡大率が指定でき、粗いほど負荷を低減できる（1.0 ～ 8.0倍まで）
     // ※この仕組みは、図形の描画が重く、ブレンディングも効かないため「点系」のみ
     //
     class Dot : public Works
@@ -714,7 +708,7 @@ namespace KotsubuParticle
         // クラス内部で使用する構造体
         struct DotProperty : public Property, public Element
         {
-            double         resolution;
+            double         dotScale;
             SamplerState   samplerState;
             DynamicTexture tex;
             Image          img;
@@ -738,21 +732,21 @@ namespace KotsubuParticle
         Dot(size_t reserve = 10000)
         {
             elements.reserve(reserve);
-            resolution(3.0);
+            dotScale(3.0);
         }
 
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Dot& pos(         Vec2   pos)    { property.pos         = pos;                        return *this; }
-        Dot& speed(       double speed)  { property.speed       = fixSpeed(speed);            return *this; }
-        Dot& color(       ColorF color)  { property.color       = color;                      return *this; }
-        Dot& angle(       double degree) { property.radian      = math.toRadian(degree);      return *this; }
-        Dot& angleRange(  double degree) { property.radianRange = math.toRadianRange(degree); return *this; }
-        Dot& accelSpeed(  double speed)  { property.accelSpeed  = speed;                      return *this; }
-        Dot& accelColor(  ColorF color)  { property.accelColor  = color;                      return *this; }
-        Dot& gravity(     double power)  { property.gravityPower  = fixGravityPower(power);   return *this; }
-        Dot& gravityAngle(double degree) { property.gravityRad  = math.toRadian(degree);      return *this; }
-        Dot& random(      double power)  { property.randPow     = fixRandomPower(power);      return *this; }
+        Dot& pos(         Vec2   pos)    { property.pos          = pos;                        return *this; }
+        Dot& speed(       double speed)  { property.speed        = fixSpeed(speed);            return *this; }
+        Dot& color(       ColorF color)  { property.color        = color;                      return *this; }
+        Dot& angle(       double degree) { property.radian       = math.toRadian(degree);      return *this; }
+        Dot& angleRange(  double degree) { property.radianRange  = math.toRadianRange(degree); return *this; }
+        Dot& accelSpeed(  double speed)  { property.accelSpeed   = speed;                      return *this; }
+        Dot& accelColor(  ColorF color)  { property.accelColor   = color;                      return *this; }
+        Dot& gravity(     double power)  { property.gravityPower = fixGravityPower(power);     return *this; }
+        Dot& gravityAngle(double degree) { property.gravityRad   = math.toRadian(degree);      return *this; }
+        Dot& random(      double power)  { property.randPow      = fixRandomPower(power);      return *this; }
         Dot& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
 
         // スムージング
@@ -763,28 +757,28 @@ namespace KotsubuParticle
             return *this;
         }
 
-        // 解像度 1.0（等倍） ～ 8.0
-        Dot& resolution(double res)
+        // ドットの拡大率。1.0（等倍） ～ 8.0
+        Dot& dotScale(double scale)
         {
-            static double oldRes = -1;
-            if (res < 1.0) res = 1.0;
-            if (res > 8.0) res = 8.0;
+            static double oldScale = -1;
+            if (scale < 1.0) scale = 1.0;
+            if (scale > 8.0) scale = 8.0;
 
 
-            if (res != oldRes) {
-                property.resolution = res;
+            if (scale != oldScale) {
+                property.dotScale = scale;
 
                 // 新しいサイズのブランクイメージを作る
-                double scale = toScale(res);
-                double margin = WorldMargin * 2.0 * scale;
-                property.blankImg = s3d::Image(static_cast<size_t>(Window::Width() * scale + margin),
-                                               static_cast<size_t>(Window::Height() * scale + margin));
+                double rate = math.inverseNumber(scale);
+                double margin = WorldMargin * 2.0 * rate;
+                property.blankImg = s3d::Image(static_cast<size_t>(Window::Width() * rate + margin),
+                                               static_cast<size_t>(Window::Height() * rate + margin));
 
                 // 動的テクスチャは「同じサイズ」のイメージを供給しないと描画されないためリセット。
                 // また、テクスチャやイメージのreleaseやclearは、連続で呼び出すとエラーする
                 property.tex.release();
 
-                oldRes = res;
+                oldScale = scale;
             }
 
             return *this;
@@ -797,8 +791,8 @@ namespace KotsubuParticle
             double radShake       = (property.radianRange * property.randPow + property.randPow) * 0.05;
             double radRangeHalf   = property.radianRange * Half;
             double speedRandLower = -property.randPow * Half;
-            double margin         = WorldMargin / property.resolution;
-            Vec2   pos            = property.pos * toScale(property.resolution);
+            double margin         = WorldMargin / property.dotScale;
+            Vec2   pos            = property.pos * math.inverseNumber(property.dotScale);
 
             if ((pos.x < -margin) || (pos.x >= property.blankImg.width() - margin) ||
                 (pos.y < -margin) || (pos.y >= property.blankImg.height() - margin))
@@ -824,7 +818,7 @@ namespace KotsubuParticle
         {
             double delta       = s3d::System::DeltaTime();
             double timeScale   = delta / FrameSecOf60Fps;
-            double margin      = WorldMargin / property.resolution;
+            double margin      = WorldMargin / property.dotScale;
             double worldRight  = property.blankImg.width() - margin;
             double worldBottom = property.blankImg.height() - margin;
             double gravitySin  = sin(property.gravityRad) * timeScale;
@@ -881,7 +875,7 @@ namespace KotsubuParticle
             }
 
             // 衝突判定
-            scalingObstacles(toScale(property.resolution));
+            scalingObstacles(property.dotScale);
             collisionAll(elements, delta);
 
             // 無効な粒子を削除
@@ -896,7 +890,7 @@ namespace KotsubuParticle
             property.img = property.blankImg;
 
             // 余白をスケーリング
-            double margin = WorldMargin / property.resolution;
+            double margin = WorldMargin / property.dotScale;
             Vec2 adjustPos = { margin, margin };
 
             // イメージを作成（粒子の数だけ処理。posが確実にimg[n]の範囲内であること）
@@ -908,7 +902,7 @@ namespace KotsubuParticle
 
             // 動的テクスチャをドロー
             s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
-            property.tex.scaled(property.resolution).draw(-WorldMargin, -WorldMargin);
+            property.tex.scaled(property.dotScale).draw(-WorldMargin, -WorldMargin);
         }
     };
 
@@ -929,7 +923,7 @@ namespace KotsubuParticle
             property.img = property.blankImg;
 
             // 余白をスケーリング
-            double margin = WorldMargin / property.resolution;
+            double margin = WorldMargin / property.dotScale;
             Vec2 adjustPos = { margin, margin };
 
             // イメージを作成（粒子の数だけ処理。posが確実にimg[n]の範囲内であること）
@@ -953,7 +947,7 @@ namespace KotsubuParticle
 
             // 動的テクスチャをドロー
             s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
-            property.tex.scaled(property.resolution).draw(-WorldMargin, -WorldMargin);
+            property.tex.scaled(property.dotScale).draw(-WorldMargin, -WorldMargin);
         }
     };
 
@@ -974,7 +968,7 @@ namespace KotsubuParticle
             property.img = property.blankImg;
 
             // 余白をスケーリング
-            double margin = WorldMargin / property.resolution;
+            double margin = WorldMargin / property.dotScale;
             Vec2 adjustPos = { margin, margin };
 
             // 【テスト】
@@ -1018,7 +1012,7 @@ namespace KotsubuParticle
 
             // 動的テクスチャをドロー
             s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
-            property.tex.scaled(property.resolution).draw(-WorldMargin, -WorldMargin);
+            property.tex.scaled(property.dotScale).draw(-WorldMargin, -WorldMargin);
         }
     };
 
@@ -1073,19 +1067,19 @@ namespace KotsubuParticle
 
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Star& pos(         Vec2   pos)    { property.pos         = pos;                        return *this; }
-        Star& size(        double size)   { property.size        = fixSize(size);              return *this; }
-        Star& speed(       double speed)  { property.speed       = fixSpeed(speed);            return *this; }
-        Star& color(       ColorF color)  { property.color       = color;                      return *this; }
-        Star& angle(       double degree) { property.radian      = math.toRadian(degree);      return *this; }
-        Star& angleRange(  double degree) { property.radianRange = math.toRadianRange(degree); return *this; }
-        Star& accelSize(   double size)   { property.accelSize   = size;                       return *this; }
-        Star& accelSpeed(  double speed)  { property.accelSpeed  = speed;                      return *this; }
-        Star& accelColor(  ColorF color)  { property.accelColor  = color;                      return *this; }
-        Star& gravity(     double power)  { property.gravityPower  = fixGravityPower(power);   return *this; }
-        Star& gravityAngle(double degree) { property.gravityRad  = math.toRadian(degree);      return *this; }
-        Star& random(      double power)  { property.randPow     = fixRandomPower(power);      return *this; }
-        Star& rotate(      double speed)  { property.rotateSpeed = speed;                      return *this; }
+        Star& pos(         Vec2   pos)    { property.pos          = pos;                        return *this; }
+        Star& size(        double size)   { property.size         = fixSize(size);              return *this; }
+        Star& speed(       double speed)  { property.speed        = fixSpeed(speed);            return *this; }
+        Star& color(       ColorF color)  { property.color        = color;                      return *this; }
+        Star& angle(       double degree) { property.radian       = math.toRadian(degree);      return *this; }
+        Star& angleRange(  double degree) { property.radianRange  = math.toRadianRange(degree); return *this; }
+        Star& accelSize(   double size)   { property.accelSize    = size;                       return *this; }
+        Star& accelSpeed(  double speed)  { property.accelSpeed   = speed;                      return *this; }
+        Star& accelColor(  ColorF color)  { property.accelColor   = color;                      return *this; }
+        Star& gravity(     double power)  { property.gravityPower = fixGravityPower(power);     return *this; }
+        Star& gravityAngle(double degree) { property.gravityRad   = math.toRadian(degree);      return *this; }
+        Star& random(      double power)  { property.randPow      = fixRandomPower(power);      return *this; }
+        Star& rotate(      double speed)  { property.rotateSpeed  = speed;                      return *this; }
         Star& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
 
         
