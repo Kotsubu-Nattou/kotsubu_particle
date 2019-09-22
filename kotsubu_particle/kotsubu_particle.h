@@ -31,7 +31,7 @@ namespace KotsubuParticle
         static inline const double FrameSecOf60Fps  = 1.0 / 60; // 60FPSのときの1フレームの秒数
         static inline const double ReflectionPowerRate = 0.8;
         static inline const double FadeoutLimit        = 0.01;
-        static inline const double WorldMargin         = 10.0;
+        static inline const double WorldMargin         = 30.0;
 
 
 
@@ -65,7 +65,7 @@ namespace KotsubuParticle
             double     radianRange;
             double     accelSpeed;
             ColorF     accelColor;
-            double     gravityPow;
+            double     gravityPower;
             double     gravityRad;
             double     fadeoutTime;
             double     fadeoutRate;
@@ -73,7 +73,7 @@ namespace KotsubuParticle
             Property() :
                 randPow(3.0), radianRange(TwoPi),
                 accelSpeed(-0.1), accelColor(-0.01, -0.02, -0.03, -0.001),
-                gravityPow(0.2), gravityRad(Pi / 2.0), 
+                gravityPower(0.2), gravityRad(Pi / 2.0), 
                 fadeoutTime(1.0), fadeoutRate(0.975),
                 blendState(s3d::BlendState::Additive)
             {}
@@ -127,7 +127,7 @@ namespace KotsubuParticle
         // 【内部メソッド】解像度を、座標スケールに変換
         double toScale(double resolution)
         {
-            return 1.0 / resolution;
+            return One / resolution;
         }
 
 
@@ -516,7 +516,7 @@ namespace KotsubuParticle
         Circle& accelSize(   double size)   { property.accelSize   = size;                       return *this; }
         Circle& accelSpeed(  double speed)  { property.accelSpeed  = speed;                      return *this; }
         Circle& accelColor(  ColorF color)  { property.accelColor  = color;                      return *this; }
-        Circle& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);     return *this; }
+        Circle& gravity(     double power)  { property.gravityPower  = fixGravityPower(power);   return *this; }
         Circle& gravityAngle(double degree) { property.gravityRad  = math.toRadian(degree);      return *this; }
         Circle& random(      double power)  { property.randPow     = fixRandomPower(power);      return *this; }
         Circle& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
@@ -525,7 +525,6 @@ namespace KotsubuParticle
         // 【メソッド】生成
         void create(int quantity)
         {
-            double size, rad, shake, range, speed;
             double sizeRandRange  = property.size * property.randPow * 0.03;
             double radShake       = (property.radianRange * property.randPow + property.randPow) * 0.05;
             double radRangeHalf   = property.radianRange * Half;
@@ -533,15 +532,15 @@ namespace KotsubuParticle
 
             for (int i = 0; i < quantity; ++i) {
                 // サイズ
-                size = property.size + Random(-sizeRandRange, sizeRandRange);
+                double size = property.size + Random(-sizeRandRange, sizeRandRange);
 
                 // 角度
-                shake = Random(-radShake, radShake) * Random(One) * Random(One);
-                range = Random(-radRangeHalf, radRangeHalf);
-                rad   = fmod(property.radian + range + shake + TwoPi, TwoPi);
+                double shake = Random(-radShake, radShake) * Random(One) * Random(One);
+                double range = Random(-radRangeHalf, radRangeHalf);
+                double rad   = fmod(property.radian + range + shake + TwoPi, TwoPi);
 
                 // スピード
-                speed = property.speed + Random(speedRandLower, property.randPow);
+                double speed = property.speed + Random(speedRandLower, property.randPow);
 
                 // 要素を追加
                 elements.emplace_back(CircleElement(property.pos, size, rad, speed, property.color));
@@ -554,11 +553,16 @@ namespace KotsubuParticle
         {
             double delta        = s3d::System::DeltaTime();
             double timeScale    = delta / FrameSecOf60Fps;
-            int    windowWidth  = s3d::Window::Width();
-            int    windowHeight = s3d::Window::Height();
+            double windowWidth  = s3d::Window::Width();
+            double windowHeight = s3d::Window::Height();
             double gravitySin   = sin(property.gravityRad) * timeScale;
             double gravityCos   = cos(property.gravityRad) * timeScale;
-            
+            double accelAlphaFixed   = property.accelColor.a * timeScale;
+            ColorF accelRgbFixed     = property.accelColor * timeScale;  // ColorF型の演算は、アルファは対象外
+            double accelSizeFixed    = property.accelSize * timeScale;
+            double gravityPowerFixed = property.gravityPower * timeScale;
+            double accelSpeedFixed   = property.accelSpeed * timeScale;
+
             for (auto& r : elements) {
                 if (r.fadeout) {
                     // フェードアウト
@@ -570,7 +574,7 @@ namespace KotsubuParticle
                 }
                 else {
                     // アルファの変化
-                    r.color.a += property.accelColor.a * timeScale;
+                    r.color.a += accelAlphaFixed;
                     if (r.color.a < 0.0 && property.accelColor.a < 0.0) {
                         r.enable = false;
                         continue;
@@ -582,10 +586,10 @@ namespace KotsubuParticle
                 }
 
                 // RGBの変化
-                r.color += property.accelColor * timeScale;  // ColorF型の演算は、アルファは対象外
+                r.color += accelRgbFixed;
 
                 // サイズの変化
-                r.size += property.accelSize * timeScale;
+                r.size += accelSizeFixed;
                 if (r.size < 0.0) {
                     r.enable = false;
                     continue;
@@ -597,7 +601,7 @@ namespace KotsubuParticle
                 r.pos.y += sin(r.radian) * r.speed * timeScale;
 
                 // 引力
-                r.gravity += property.gravityPow * timeScale;
+                r.gravity += gravityPowerFixed;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
@@ -610,7 +614,7 @@ namespace KotsubuParticle
                 }
 
                 // スピードの変化
-                r.speed += property.accelSpeed * timeScale;
+                r.speed += accelSpeedFixed;
                 if (r.speed < 0.0) r.speed = 0.0;
             }
 
@@ -682,11 +686,10 @@ namespace KotsubuParticle
         // 【メソッド】ドロー（オーバーライド）
         void draw()
         {
-            double rate;
             s3d::RenderStateBlock2D tmp(property.blendState);
 
             for (int i = 0; i < layerQty; ++i) {
-                rate = One - i / static_cast<double>(layerQty);
+                double rate = One - i / static_cast<double>(layerQty);
                 for (auto& r : elements)
                     s3d::Circle(r.pos, r.size * rate).draw(r.color);
             }
@@ -747,7 +750,7 @@ namespace KotsubuParticle
         Dot& angleRange(  double degree) { property.radianRange = math.toRadianRange(degree); return *this; }
         Dot& accelSpeed(  double speed)  { property.accelSpeed  = speed;                      return *this; }
         Dot& accelColor(  ColorF color)  { property.accelColor  = color;                      return *this; }
-        Dot& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);     return *this; }
+        Dot& gravity(     double power)  { property.gravityPower  = fixGravityPower(power);   return *this; }
         Dot& gravityAngle(double degree) { property.gravityRad  = math.toRadian(degree);      return *this; }
         Dot& random(      double power)  { property.randPow     = fixRandomPower(power);      return *this; }
         Dot& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
@@ -773,8 +776,9 @@ namespace KotsubuParticle
 
                 // 新しいサイズのブランクイメージを作る
                 double scale = toScale(res);
-                property.blankImg = s3d::Image(static_cast<int>(Window::Width()  * scale),
-                                               static_cast<int>(Window::Height() * scale));
+                double margin = WorldMargin * 2.0 * scale;
+                property.blankImg = s3d::Image(static_cast<size_t>(Window::Width() * scale + margin),
+                                               static_cast<size_t>(Window::Height() * scale + margin));
 
                 // 動的テクスチャは「同じサイズ」のイメージを供給しないと描画されないためリセット。
                 // また、テクスチャやイメージのreleaseやclearは、連続で呼び出すとエラーする
@@ -790,26 +794,27 @@ namespace KotsubuParticle
         // 【メソッド】生成
         void create(int quantity)
         {
-            double rad, shake, range, speed;
             double radShake       = (property.radianRange * property.randPow + property.randPow) * 0.05;
             double radRangeHalf   = property.radianRange * Half;
             double speedRandLower = -property.randPow * Half;
+            double margin         = WorldMargin / property.resolution;
             Vec2   pos            = property.pos * toScale(property.resolution);
 
-            if (property.pos.x >= 0.0 && property.pos.x < Window::Width() &&
-                property.pos.y >= 0.0 && property.pos.y < Window::Height()) {
-                for (int i = 0; i < quantity; ++i) {
-                    // 角度
-                    shake = Random(-radShake, radShake) * Random(One) * Random(One);
-                    range = Random(-radRangeHalf, radRangeHalf);
-                    rad = fmod(property.radian + range + shake + TwoPi, TwoPi);
+            if ((pos.x < -margin) || (pos.x >= property.blankImg.width() - margin) ||
+                (pos.y < -margin) || (pos.y >= property.blankImg.height() - margin))
+                return;
 
-                    // スピード
-                    speed = property.speed + Random(speedRandLower, property.randPow);
+            for (int i = 0; i < quantity; ++i) {
+                // 角度
+                double shake = Random(-radShake, radShake) * Random(One) * Random(One);
+                double range = Random(-radRangeHalf, radRangeHalf);
+                double rad = fmod(property.radian + range + shake + TwoPi, TwoPi);
 
-                    // 要素を追加
-                    elements.emplace_back(Element(pos, rad, speed, property.color));
-                }
+                // スピード
+                double speed = property.speed + Random(speedRandLower, property.randPow);
+
+                // 要素を追加
+                elements.emplace_back(Element(pos, rad, speed, property.color));
             }
         }
 
@@ -819,11 +824,16 @@ namespace KotsubuParticle
         {
             double delta       = s3d::System::DeltaTime();
             double timeScale   = delta / FrameSecOf60Fps;
-            int    imgWidth    = property.blankImg.width();
-            int    imgHeight   = property.blankImg.height();
+            double margin      = WorldMargin / property.resolution;
+            double worldRight  = property.blankImg.width() - margin;
+            double worldBottom = property.blankImg.height() - margin;
             double gravitySin  = sin(property.gravityRad) * timeScale;
             double gravityCos  = cos(property.gravityRad) * timeScale;
-
+            double accelAlphaFixed   = property.accelColor.a * timeScale;
+            ColorF accelRgbFixed     = property.accelColor * timeScale;  // ColorF型の演算は、アルファは対象外
+            double gravityPowerFixed = property.gravityPower * timeScale;
+            double accelSpeedFixed   = property.accelSpeed * timeScale;
+ 
             for (auto& r : elements) {
                 if (r.fadeout) {
                     // フェードアウト
@@ -835,7 +845,7 @@ namespace KotsubuParticle
                 }
                 else {
                     // アルファの変化
-                    r.color.a += property.accelColor.a * timeScale;
+                    r.color.a += accelAlphaFixed;
                     if (r.color.a < 0.0 && property.accelColor.a < 0.0) {
                         r.enable = false;
                         continue;
@@ -846,7 +856,7 @@ namespace KotsubuParticle
                 }
 
                 // RGBの変化
-                r.color += property.accelColor * timeScale;  // ColorF型の演算は、アルファは対象外
+                r.color += accelRgbFixed;
 
                 // 移動
                 r.oldPos = r.pos;
@@ -854,19 +864,19 @@ namespace KotsubuParticle
                 r.pos.y += sin(r.radian) * r.speed * timeScale;
 
                 // 引力
-                r.gravity += property.gravityPow * timeScale;
+                r.gravity += gravityPowerFixed;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
-                // 領域外の判定（posはイメージ配列の添え字になるので、そのチェックも兼ねる）
-                if ((r.pos.x < 0.0) || (r.pos.x >= imgWidth) ||
-                    (r.pos.y < 0.0) || (r.pos.y >= imgHeight)) {
+                // 領域外の判定（posはイメージ配列の添え字になるので慎重に）
+                if ((r.pos.x < -margin) || (r.pos.x >= worldRight) ||
+                    (r.pos.y < -margin) || (r.pos.y >= worldBottom)) {
                     r.enable = false;
                     continue;
                 }
 
                 // スピードの変化
-                r.speed += property.accelSpeed * timeScale;
+                r.speed += accelSpeedFixed;
                 if (r.speed < 0.0) r.speed = 0.0;
             }
 
@@ -885,16 +895,20 @@ namespace KotsubuParticle
             // イメージをクリア（clear関数もあるが連続で呼び出すとエラーする）
             property.img = property.blankImg;
 
+            // 余白をスケーリング
+            double margin = WorldMargin / property.resolution;
+            Vec2 adjustPos = { margin, margin };
+
             // イメージを作成（粒子の数だけ処理。posが確実にimg[n]の範囲内であること）
             for (auto& r : elements)
-                property.img[r.pos.asPoint()].set(r.color);
+                property.img[(r.pos + adjustPos).asPoint()].set(r.color);
 
             // 動的テクスチャを更新
             property.tex.fill(property.img);
 
             // 動的テクスチャをドロー
             s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
-            property.tex.scaled(property.resolution).draw();
+            property.tex.scaled(property.resolution).draw(-WorldMargin, -WorldMargin);
         }
     };
 
@@ -911,25 +925,27 @@ namespace KotsubuParticle
         // 【メソッド】ドロー（オーバーライド）
         void draw()
         {
-            ColorF src, dst;
-            Point pos;
-
             // イメージをクリア（clear関数もあるが連続で呼び出すとエラーする）
             property.img = property.blankImg;
 
+            // 余白をスケーリング
+            double margin = WorldMargin / property.resolution;
+            Vec2 adjustPos = { margin, margin };
+
             // イメージを作成（粒子の数だけ処理。posが確実にimg[n]の範囲内であること）
             for (auto& r : elements) {
-                pos = r.pos.asPoint();  // Vec2型のposを、Point型に変換
+                // 現在位置の「余白の-margin分」を補正して添え字化
+                Point point = (r.pos + adjustPos).asPoint();
 
-                                        // 現在位置（座標）の色を求める（自前の加算ブレンディング）
-                src = property.img[pos];
-                dst.r = src.r + r.color.r * r.color.a;
-                dst.g = src.g + r.color.g * r.color.a;
-                dst.b = src.b + r.color.b * r.color.a;
-                dst.a = src.a + r.color.a;  // 本来は違うかもしれないが見栄えがよい（キラキラする）
+                // 現在位置の色を求める（自前の加算ブレンディング）
+                ColorF src = property.img[point];
+                ColorF dst = { src.r + r.color.r * r.color.a,
+                               src.g + r.color.g * r.color.a,
+                               src.b + r.color.b * r.color.a,
+                               src.a + r.color.a };  // 本来は違うかもしれないが見栄えがよい（キラキラする）
 
-                                            // 求めた色をセット
-                property.img[pos].set(dst);
+                // 求めた色をセット
+                property.img[point].set(dst);
             }
 
             // 動的テクスチャを更新
@@ -937,7 +953,7 @@ namespace KotsubuParticle
 
             // 動的テクスチャをドロー
             s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
-            property.tex.scaled(property.resolution).draw();
+            property.tex.scaled(property.resolution).draw(-WorldMargin, -WorldMargin);
         }
     };
 
@@ -946,7 +962,7 @@ namespace KotsubuParticle
 
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // 【Dotを継承】点のパーティクル（加算合成）
+    // 【Dotを継承】点のパーティクル（しっぽ付き）
     //
     class DotTailed : public Dot
     {
@@ -957,6 +973,10 @@ namespace KotsubuParticle
             // イメージをクリア（clear関数もあるが連続で呼び出すとエラーする）
             property.img = property.blankImg;
 
+            // 余白をスケーリング
+            double margin = WorldMargin / property.resolution;
+            Vec2 adjustPos = { margin, margin };
+
             // 【テスト】
             int lenMax = -1;
 
@@ -964,22 +984,22 @@ namespace KotsubuParticle
             for (auto& r : elements) {
                 Vec2   normal = math.normalize(r.pos - r.oldPos);
                 int    len    = static_cast<int>(math.distance(r.pos, r.oldPos) * 0.99);
-                Vec2   pos    = r.pos;
+                Vec2   pos    = r.pos + adjustPos;
                 double alpha  = r.color.a;
-                ColorF src, dst;
-                Point  point;
 
                 // 【テスト】
                 if (len > lenMax) lenMax = len;
 
                 for (int i = 0; i <= len; ++i) {
-                    // 現在位置（座標）の色を求める（自前の加算ブレンディング）
-                    point = pos.asPoint();
-                    src = property.img[point];
-                    dst.r = src.r + r.color.r * alpha;
-                    dst.g = src.g + r.color.g * alpha;
-                    dst.b = src.b + r.color.b * alpha;
-                    dst.a = src.a + alpha;  // 本来は違うかもしれないが見栄えがよい（キラキラする）
+                    // 書き込み位置を添え字化
+                    Point point = pos.asPoint();
+
+                    // 書き込み位置の色を求める（自前の加算ブレンディング）
+                    ColorF src = property.img[point];
+                    ColorF dst = { src.r + r.color.r * r.color.a,
+                                   src.g + r.color.g * r.color.a,
+                                   src.b + r.color.b * r.color.a,
+                                   src.a + r.color.a };  // 本来は違うかもしれないが見栄えがよい（キラキラする）
 
                     // 求めた色をセット
                     property.img[point].set(dst);
@@ -998,7 +1018,7 @@ namespace KotsubuParticle
 
             // 動的テクスチャをドロー
             s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
-            property.tex.scaled(property.resolution).draw();
+            property.tex.scaled(property.resolution).draw(-WorldMargin, -WorldMargin);
         }
     };
 
@@ -1033,7 +1053,7 @@ namespace KotsubuParticle
             double accelSize;
             StarProperty() : accelSize(1.3)
             {
-                gravityPow = 0.0;
+                gravityPower = 0.0;
             }
         };
 
@@ -1062,7 +1082,7 @@ namespace KotsubuParticle
         Star& accelSize(   double size)   { property.accelSize   = size;                       return *this; }
         Star& accelSpeed(  double speed)  { property.accelSpeed  = speed;                      return *this; }
         Star& accelColor(  ColorF color)  { property.accelColor  = color;                      return *this; }
-        Star& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);     return *this; }
+        Star& gravity(     double power)  { property.gravityPower  = fixGravityPower(power);   return *this; }
         Star& gravityAngle(double degree) { property.gravityRad  = math.toRadian(degree);      return *this; }
         Star& random(      double power)  { property.randPow     = fixRandomPower(power);      return *this; }
         Star& rotate(      double speed)  { property.rotateSpeed = speed;                      return *this; }
@@ -1072,7 +1092,6 @@ namespace KotsubuParticle
         // 【メソッド】生成
         void create(int quantity)
         {
-            double size, rad, shake, range, speed, rotateSpeed;
             double sizeRandRange    = property.size * property.randPow * 0.03;
             double radShake         = (property.radianRange * property.randPow + property.randPow) * 0.05;
             double radRangeHalf     = property.radianRange * Half;
@@ -1081,18 +1100,18 @@ namespace KotsubuParticle
 
             for (int i = 0; i < quantity; ++i) {
                 // サイズ
-                size = property.size + Random(-sizeRandRange, sizeRandRange);
+                double size = property.size + Random(-sizeRandRange, sizeRandRange);
 
                 // 角度
-                shake = Random(-radShake, radShake) * Random(One) * Random(One);
-                range = Random(-radRangeHalf, radRangeHalf);
-                rad   = fmod(property.radian + range + shake + TwoPi, TwoPi);
+                double shake = Random(-radShake, radShake) * Random(One) * Random(One);
+                double range = Random(-radRangeHalf, radRangeHalf);
+                double rad   = fmod(property.radian + range + shake + TwoPi, TwoPi);
 
                 // スピード
-                speed = property.speed + Random(speedRandLower, property.randPow);
+                double speed = property.speed + Random(speedRandLower, property.randPow);
 
                 // 回転
-                rotateSpeed = property.rotateSpeed + Random(-rotateSpeedRange, rotateSpeedRange);
+                double rotateSpeed = property.rotateSpeed + Random(-rotateSpeedRange, rotateSpeedRange);
 
                 // 要素を追加
                 elements.emplace_back(StarElement(property.pos, size, rad, speed, property.color, Random(TwoPi), rotateSpeed));
@@ -1105,10 +1124,16 @@ namespace KotsubuParticle
         {
             double delta        = s3d::System::DeltaTime();
             double timeScale    = delta / FrameSecOf60Fps;
-            int    windowWidth  = s3d::Window::Width();
-            int    windowHeight = s3d::Window::Height();
+            double windowWidth  = s3d::Window::Width();
+            double windowHeight = s3d::Window::Height();
             double gravitySin   = sin(property.gravityRad) * timeScale;
             double gravityCos   = cos(property.gravityRad) * timeScale;
+            double accelAlphaFixed   = property.accelColor.a * timeScale;
+            ColorF accelRgbFixed     = property.accelColor * timeScale;  // ColorF型の演算は、アルファは対象外
+            double accelSizeFixed    = property.accelSize * timeScale;
+            double gravityPowerFixed = property.gravityPower * timeScale;
+            double accelSpeedFixed   = property.accelSpeed * timeScale;
+            double rotateSpeedFixed  = property.rotateSpeed * timeScale;
 
             for (auto& r : elements) {
                 if (r.fadeout) {
@@ -1121,7 +1146,7 @@ namespace KotsubuParticle
                 }
                 else {
                     // アルファの変化
-                    r.color.a += property.accelColor.a * timeScale;
+                    r.color.a += accelAlphaFixed;
                     if (r.color.a < 0.0 && property.accelColor.a < 0.0) {
                         r.enable = false;
                         continue;
@@ -1132,10 +1157,10 @@ namespace KotsubuParticle
                 }
 
                 // RGBの変化
-                r.color += property.accelColor * timeScale;  // ColorF型の演算は、アルファは対象外
+                r.color += accelRgbFixed;
 
                 // サイズの変化
-                r.size += property.accelSize * timeScale;
+                r.size += accelSizeFixed;
                 if (r.size < 0.0) {
                     r.enable = false;
                     continue;
@@ -1147,7 +1172,7 @@ namespace KotsubuParticle
                 r.pos.y += sin(r.radian) * r.speed * timeScale;
 
                 // 引力
-                r.gravity += property.gravityPow * timeScale;
+                r.gravity += gravityPowerFixed;
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
@@ -1160,11 +1185,11 @@ namespace KotsubuParticle
                 }
 
                 // スピードの変化
-                r.speed += property.accelSpeed * timeScale;
+                r.speed += accelSpeedFixed;
                 if (r.speed < 0.0) r.speed = 0.0;
 
                 // 回転
-                r.rotateRad += r.rotateSpeed * timeScale;
+                r.rotateRad += rotateSpeedFixed;
                 if ((r.rotateRad < 0.0) || (r.rotateRad >= TwoPi))
                     r.rotateRad = fmod(r.rotateRad, TwoPi);
             }
@@ -1260,11 +1285,10 @@ namespace KotsubuParticle
         // 【メソッド】ドロー（オーバーライド）
         void draw()
         {
-            double rate;
             s3d::RenderStateBlock2D tmp(property.blendState);
 
             for (int i = 0; i < layerQty; ++i) {
-                rate = One - i / static_cast<double>(layerQty) * Half;
+                double rate = One - i / static_cast<double>(layerQty) * Half;
                 for (auto& r : elements)
                     Shape2D::Star(r.size * rate, r.pos, r.rotateRad).draw(r.color);
             }
@@ -1284,11 +1308,10 @@ namespace KotsubuParticle
         // 【メソッド】ドロー（オーバーライド）
         void draw()
         {
-            double rate;
             s3d::RenderStateBlock2D tmp(property.blendState);
 
             for (int i = 0; i < layerQty; ++i) {
-                rate = One - i / static_cast<double>(layerQty) * Half;
+                double rate = One - i / static_cast<double>(layerQty) * Half;
                 for (auto& r : elements)
                     s3d::RectF(Arg::center = r.pos, r.size * RootTwo * rate).rotated(r.rotateRad).draw(r.color);
             }
@@ -1308,11 +1331,10 @@ namespace KotsubuParticle
         // 【メソッド】ドロー（オーバーライド）
         void draw()
         {
-            double rate;
             s3d::RenderStateBlock2D tmp(property.blendState);
 
             for (int i = 0; i < layerQty; ++i) {
-                rate = One - i / static_cast<double>(layerQty) * Half;
+                double rate = One - i / static_cast<double>(layerQty) * Half;
                 for (auto& r : elements)
                     Shape2D::Pentagon(r.size * rate, r.pos, r.rotateRad).draw(r.color);
             }

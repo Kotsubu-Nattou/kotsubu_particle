@@ -66,7 +66,7 @@ void Main()
         Rect(Window::Center() + Point(-200, -200), 250).draw(Palette::Darkblue);
         Circle(Window::Center() + Point(70, 50), 150).draw(Palette::Darkgreen);
         Circle(Window::Center() + Point(200, -150), 30).drawFrame(5.0, Palette::Blueviolet);
-        obstaclePolygon.drawFrame(2.0, Palette::White);
+        obstaclePolygon.drawFrame(3.0, Palette::White);
         //smoke.draw();  // ドローする順番で印象が変わる
         //neko.draw();
         dot.draw();
