@@ -1,7 +1,7 @@
 ﻿#pragma once
+#include <cmath>
 #include <vector>
 #include <algorithm>
-#include <cmath>
 #include <Siv3D.hpp>
 #include "kotsubu_math.h"
 
