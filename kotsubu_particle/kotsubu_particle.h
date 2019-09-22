@@ -3,11 +3,11 @@
 #include <algorithm>
 #include <cmath>
 #include <Siv3D.hpp>
-#include "my_math.h"
+#include "kotsubu_math.h"
 
 
 
-namespace Particle2D
+namespace KotsubuParticle
 {
     /////////////////////////////////////////////////////////////////////////////////////
     // 【基底クラス】すべてのパーティクルの元となるクラス。単独利用不可
@@ -15,7 +15,7 @@ namespace Particle2D
     class Works
     {
     protected:
-        MyMath& math = MyMath::getInstance();
+        KotsubuMath& math = KotsubuMath::getInstance();
         // 【テスト】
         Font font = Font(24);
         Stopwatch timer;
@@ -28,10 +28,10 @@ namespace Particle2D
         static inline const double RootTwo = 1.414213562373095; // 斜辺が45°の直角三角形における、斜辺の比（他の辺は共に1）
         static inline const double One  = 1.0;                  // 1.0
         static inline const double Half = 0.5;                  // 0.5
-        static inline const double MovingEpsilonPow = 0.01;     // これ未満の移動量^2を停止とする
         static inline const double FrameSecOf60Fps  = 1.0 / 60; // 60FPSのときの1フレームの秒数
-        static inline const double PowerRatio       = 0.8;
-        static inline const double AlphaFadeRatio   = 0.8;
+        static inline const double ReflectionPowerRate = 0.8;
+        static inline const double FadeoutLimit        = 0.01;
+        static inline const double WorldMargin         = 10.0;
 
 
 
@@ -44,33 +44,37 @@ namespace Particle2D
             double speed;
             ColorF color;
             double gravity;
-            bool   alphaLock;
+            double liveTime;
+            bool   fadeout;
             bool   enable;
             Element() :
                 pos(Vec2(0, 0)), radian(0.0), speed(5.0),
                 color(ColorF(1.0, 0.9, 0.6, 0.8)), gravity(0.0),
-                alphaLock(false), enable(true)
+                liveTime(0.0), fadeout(false), enable(true)
             {}
             Element(Vec2 _pos, double _radian, double _speed, ColorF _color) :
-                pos(_pos), radian(_radian), speed(_speed), color(_color),
-                gravity(0.0), alphaLock(false), enable(true)
+                pos(_pos), radian(_radian), speed(_speed), color(_color), gravity(0.0),
+                liveTime(0.0), fadeout(false), enable(true)
             {}
         };
 
 
         struct Property
         {
-            double       randPow;
-            double       radianRange;
-            double       accelSpeed;
-            ColorF       accelColor;
-            double       gravityPow;
-            double       gravityRad;
-            BlendState   blendState;
+            double     randPow;
+            double     radianRange;
+            double     accelSpeed;
+            ColorF     accelColor;
+            double     gravityPow;
+            double     gravityRad;
+            double     fadeoutTime;
+            double     fadeoutRate;
+            BlendState blendState;
             Property() :
                 randPow(3.0), radianRange(TwoPi),
                 accelSpeed(-0.1), accelColor(-0.01, -0.02, -0.03, -0.001),
-                gravityPow(0.2), gravityRad(Pi / 2.0),
+                gravityPow(0.2), gravityRad(Pi / 2.0), 
+                fadeoutTime(1.0), fadeoutRate(0.975),
                 blendState(s3d::BlendState::Additive)
             {}
         };
@@ -78,11 +82,11 @@ namespace Particle2D
 
 
         // 【内部フィールド】衝突判定用
-        std::vector<MyMath::Line>      obstacleLines;
-        std::vector<MyMath::Rect>      obstacleRects;
-        std::vector<MyMath::Circle>    obstacleCircles;
-        std::vector<std::vector<Vec2>> obstaclePolygons;
-        std::vector<std::vector<Vec2>> obstaclePolylines;
+        std::vector<KotsubuMath::Line>   obstacleLines;
+        std::vector<KotsubuMath::Rect>   obstacleRects;
+        std::vector<KotsubuMath::Circle> obstacleCircles;
+        std::vector<std::vector<Vec2>>   obstaclePolygons;
+        std::vector<std::vector<Vec2>>   obstaclePolylines;
 
 
 
@@ -121,24 +125,9 @@ namespace Particle2D
 
 
         // 【内部メソッド】解像度を、座標スケールに変換
-        double convReso2Scale(double resolution)
+        double toScale(double resolution)
         {
             return 1.0 / resolution;
-        }
-
-
-        // 【内部メソッド】alphaを指定の割合に変更。フェードアウト用
-        // フェードアウト中に、通常のalpha加減算処理を行うとバッティングしてしまう。
-        // そのため、1フレームだけパスさせるためにフラグを立てる（Element.alphaLock = true）
-        // また、alphaが下限値を下回ったら、その粒子を無効にする。
-        void fadeoutAlpha(Element& element, double alphaRatio)
-        {
-            static const double LowerLimit  = 0.02;
-
-            element.color.a *= alphaRatio;
-            if (element.color.a < LowerLimit)
-                element.enable = false;
-            element.alphaLock = true;
         }
 
 
@@ -174,9 +163,9 @@ namespace Particle2D
 
             // 【テスト】
             timer.pause();
-            font(U"elements.size    : ", elements.size()).draw(0, 30);
-            font(U"elements.capacity: ", elements.capacity()).draw(0, 60);
-            font(U"cleanElements time(ms): ", timer.ms()).draw(0, 90);
+            //font(U"elements.size    : ", elements.size()).draw(0, 30);
+            //font(U"elements.capacity: ", elements.capacity()).draw(0, 60);
+            //font(U"cleanElements time(ms): ", timer.ms()).draw(0, 90);
         }
 
 
@@ -238,7 +227,7 @@ namespace Particle2D
             
             // 【テスト】
             timer.pause();
-            font(U"collisionAll time(ms): ", timer.ms()).draw(0, 120);
+            //font(U"collisionAll time(ms): ", timer.ms()).draw(0, 120);
         }
 
 
@@ -252,12 +241,10 @@ namespace Particle2D
             for (auto& elm : elements) {
                 for (auto& line : obstacleLines) {
                     if (math.hit.lineOnLine(line.startPos, line.endPos, elm.oldPos, elm.pos)) {
-                        fadeoutAlpha(elm, AlphaFadeRatio);
-                        if (elm.enable) {
-                            double rad = math.direction(line.endPos - line.startPos);
-                            reverseDirection(elm, rad, timeScale);
-                            elm.pos = elm.oldPos;
-                        }
+                        double rad = math.direction(line.endPos - line.startPos);
+                        reverseDirection(elm, rad, timeScale);
+                        elm.pos = elm.oldPos;
+                        elm.fadeout = true;
                         break;
                     }
                 }
@@ -274,18 +261,16 @@ namespace Particle2D
 
             for (auto& elm : elements) {
                 for (auto& rect : obstacleRects) {
-                    if (math.hit.pointInBox(elm.pos, rect)) {
-                        fadeoutAlpha(elm, AlphaFadeRatio);
-                        if (elm.enable) {
-                            if (math.hit.lineOnHorizontal(elm.oldPos.y, elm.pos.y, rect.top) ||
-                                math.hit.lineOnHorizontal(elm.oldPos.y, elm.pos.y, rect.bottom)) {
-                                reverseDirection(elm, 0.0, timeScale);
-                            }
-                            else {
-                                reverseDirection(elm, math.RightAngle, timeScale);
-                            }
-                            elm.pos = elm.oldPos;
+                    if (math.hit.pointOnBox(elm.pos, rect)) {
+                        if (math.hit.lineOnHorizontal(elm.oldPos.y, elm.pos.y, rect.top) ||
+                            math.hit.lineOnHorizontal(elm.oldPos.y, elm.pos.y, rect.bottom)) {
+                            reverseDirection(elm, 0.0, timeScale);
                         }
+                        else {
+                            reverseDirection(elm, math.RightAngle, timeScale);
+                        }
+                        elm.pos = elm.oldPos;
+                        elm.fadeout = true;
                         break;
                     }
                 }
@@ -304,11 +289,9 @@ namespace Particle2D
                 for (auto& circle : obstacleCircles) {
                     double radiusPow = circle.radius * circle.radius;
                     if (math.distancePow(elm.pos, circle.pos) < radiusPow) {
-                        fadeoutAlpha(elm, AlphaFadeRatio);
-                        if (elm.enable) {
-                            reverseDirection(elm, math.direction(circle.pos - elm.pos) + math.RightAngle, timeScale);
-                            elm.pos = elm.oldPos;
-                        }
+                        reverseDirection(elm, math.direction(circle.pos - elm.pos) + math.RightAngle, timeScale);
+                        elm.pos = elm.oldPos;
+                        elm.fadeout = true;
                         break;
                     }
                 }
@@ -328,19 +311,17 @@ namespace Particle2D
 
             for (auto& elm : elements) {
                 for (auto& vertices : obstaclePolygons) {
-                    if (math.hit.pointInPolygon(elm.pos, vertices)) {
+                    if (math.hit.pointOnPolygon(elm.pos, vertices)) {
                         // どの辺と交差したかを調べて跳ね返す
                         bool isIntersect = false;
                         for (int i = 0, edgeQty = vertices.size() - 1; i < edgeQty; ++i) {
-                            MyMath::Line edge(vertices[i], vertices[i + 1]);
+                            KotsubuMath::Line edge(vertices[i], vertices[i + 1]);
                             if (math.hit.lineOnLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
-                                fadeoutAlpha(elm, AlphaFadeRatio);
-                                if (elm.enable) {
-                                    double rad = math.direction(edge.endPos - edge.startPos);
-                                    reverseDirection(elm, rad, timeScale);
-                                    elm.pos = elm.oldPos;
-                                    isIntersect = true;
-                                }
+                                double rad = math.direction(edge.endPos - edge.startPos);
+                                reverseDirection(elm, rad, timeScale);
+                                elm.pos = elm.oldPos;
+                                elm.fadeout = true;
+                                isIntersect = true;
                                 break;
                             }
                         }
@@ -365,14 +346,12 @@ namespace Particle2D
                 for (auto& vertices : obstaclePolylines) {
                     bool isIntersect = false;
                     for (int i = 0, edgeQty = vertices.size() - 1; i < edgeQty; ++i) {
-                        MyMath::Line edge(vertices[i], vertices[i + 1]);
+                        KotsubuMath::Line edge(vertices[i], vertices[i + 1]);
                         if (math.hit.lineOnLine(edge.startPos, edge.endPos, elm.oldPos, elm.pos)) {
-                            fadeoutAlpha(elm, AlphaFadeRatio);
-                            if (elm.enable) {
-                                double rad = math.direction(edge.endPos - edge.startPos);
-                                reverseDirection(elm, rad, timeScale);
-                                elm.pos = elm.oldPos;
-                            }
+                            double rad = math.direction(edge.endPos - edge.startPos);
+                            reverseDirection(elm, rad, timeScale);
+                            elm.pos = elm.oldPos;
+                            elm.fadeout = true;
                             isIntersect = true;
                             break;
                         }
@@ -398,7 +377,7 @@ namespace Particle2D
             element.radian = math.reflection(math.direction(move), reflectionAxisRad);
 
             // 速度を「移動距離」とし、力を減衰させる。（直前までの引力成分も含まれる）
-            element.speed = math.length(move) * timeScale * PowerRatio;
+            element.speed = math.length(move) * timeScale * ReflectionPowerRate;
 
             // 引力をリセット（引力成分はelement.speedに引き継がれている）
             element.gravity = 0.0;
@@ -425,7 +404,7 @@ namespace Particle2D
         //void fixCollisionOverrunLite(Element& element)
         //{
         //    Vec2 v(element.pos - element.oldPos);
-        //    element.pos = element.oldPos + v * PowerRatio;
+        //    element.pos = element.oldPos + v * ReflectionPowerRate;
         //}
 
 
@@ -435,7 +414,7 @@ namespace Particle2D
         // 順次登録可能。次回update時に反映＆すべて破棄
         void registObstacleLine(Vec2 lineStartPos, Vec2 lineEndPos)
         {
-            obstacleLines.emplace_back(MyMath::Line(lineStartPos, lineEndPos));
+            obstacleLines.emplace_back(KotsubuMath::Line(lineStartPos, lineEndPos));
         }
 
 
@@ -443,7 +422,7 @@ namespace Particle2D
         // 順次登録可能。次回update時に反映＆すべて破棄
         void registObstacleRect(double left, double top, double right, double bottom)
         {
-            obstacleRects.emplace_back(MyMath::Rect(left, top, right, bottom));
+            obstacleRects.emplace_back(KotsubuMath::Rect(left, top, right, bottom));
         }
 
 
@@ -451,7 +430,7 @@ namespace Particle2D
         // 順次登録可能。次回update時に反映＆すべて破棄
         void registObstacleCircle(Vec2 pos, double radius)
         {
-            obstacleCircles.emplace_back(MyMath::Circle(pos, radius));
+            obstacleCircles.emplace_back(KotsubuMath::Circle(pos, radius));
         }
 
 
@@ -528,18 +507,18 @@ namespace Particle2D
 
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Circle& pos(         Vec2   pos)    { property.pos         = pos;                          return *this; }
-        Circle& size(        double size)   { property.size        = fixSize(size);                return *this; }
-        Circle& speed(       double speed)  { property.speed       = fixSpeed(speed);              return *this; }
-        Circle& color(       ColorF color)  { property.color       = color;                        return *this; }
-        Circle& angle(       double degree) { property.radian      = math.convRadian(degree);      return *this; }
-        Circle& angleRange(  double degree) { property.radianRange = math.convRadianRange(degree); return *this; }
-        Circle& accelSize(   double size)   { property.accelSize   = size;                         return *this; }
-        Circle& accelSpeed(  double speed)  { property.accelSpeed  = speed;                        return *this; }
-        Circle& accelColor(  ColorF color)  { property.accelColor  = color;                        return *this; }
-        Circle& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);       return *this; }
-        Circle& gravityAngle(double degree) { property.gravityRad  = math.convRadian(degree);      return *this; }
-        Circle& random(      double power)  { property.randPow     = fixRandomPower(power);        return *this; }
+        Circle& pos(         Vec2   pos)    { property.pos         = pos;                        return *this; }
+        Circle& size(        double size)   { property.size        = fixSize(size);              return *this; }
+        Circle& speed(       double speed)  { property.speed       = fixSpeed(speed);            return *this; }
+        Circle& color(       ColorF color)  { property.color       = color;                      return *this; }
+        Circle& angle(       double degree) { property.radian      = math.toRadian(degree);      return *this; }
+        Circle& angleRange(  double degree) { property.radianRange = math.toRadianRange(degree); return *this; }
+        Circle& accelSize(   double size)   { property.accelSize   = size;                       return *this; }
+        Circle& accelSpeed(  double speed)  { property.accelSpeed  = speed;                      return *this; }
+        Circle& accelColor(  ColorF color)  { property.accelColor  = color;                      return *this; }
+        Circle& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);     return *this; }
+        Circle& gravityAngle(double degree) { property.gravityRad  = math.toRadian(degree);      return *this; }
+        Circle& random(      double power)  { property.randPow     = fixRandomPower(power);      return *this; }
         Circle& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
 
 
@@ -579,21 +558,35 @@ namespace Particle2D
             int    windowHeight = s3d::Window::Height();
             double gravitySin   = sin(property.gravityRad) * timeScale;
             double gravityCos   = cos(property.gravityRad) * timeScale;
-
+            
             for (auto& r : elements) {
-                // 色の変化
-                r.color += property.accelColor * timeScale;  // ColorFを「+=」した場合、対象はRGBのみ
-                if (!r.alphaLock)
-                    r.color.a += property.accelColor.a * timeScale;
-                if (r.color.a <= 0.0) {
-                    r.enable = false;
-                    continue;
+                if (r.fadeout) {
+                    // フェードアウト
+                    r.color.a *= property.fadeoutRate;
+                    if (r.color.a < FadeoutLimit) {
+                        r.enable = false;
+                        continue;
+                    }
                 }
-                r.alphaLock = false;
+                else {
+                    // アルファの変化
+                    r.color.a += property.accelColor.a * timeScale;
+                    if (r.color.a < 0.0 && property.accelColor.a < 0.0) {
+                        r.enable = false;
+                        continue;
+                    }
+                    // 生存時間を累積
+                    r.liveTime += delta;
+                    if (r.liveTime > property.fadeoutTime)
+                        r.fadeout = true;
+                }
+
+                // RGBの変化
+                r.color += property.accelColor * timeScale;  // ColorF型の演算は、アルファは対象外
 
                 // サイズの変化
                 r.size += property.accelSize * timeScale;
-                if (r.size <= 0.0) {
+                if (r.size < 0.0) {
                     r.enable = false;
                     continue;
                 }
@@ -608,18 +601,13 @@ namespace Particle2D
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
-                // 画面外かどうか
-                if ((r.pos.x <= -r.size) || (r.pos.x >= windowWidth  + r.size) ||
-                    (r.pos.y <= -r.size) || (r.pos.y >= windowHeight + r.size)) {
+                // 領域外の判定
+                double margin = r.size + WorldMargin;
+                if ((r.pos.x < -margin) || (r.pos.x > windowWidth  + margin) ||
+                    (r.pos.y < -margin) || (r.pos.y > windowHeight + margin)) {
                     r.enable = false;
                     continue;
                 }
-
-                // 動いていないなら、アルファを強制的に下げる
-                //if (math.lengthPow(r.pos - r.oldPos) < MovingEpsilonPow) {
-                //    fadeoutAlpha(r, AlphaFadeRatio);
-                //    if (!r.enable) continue;
-                //}
 
                 // スピードの変化
                 r.speed += property.accelSpeed * timeScale;
@@ -694,13 +682,13 @@ namespace Particle2D
         // 【メソッド】ドロー（オーバーライド）
         void draw()
         {
-            double ratio;
+            double rate;
             s3d::RenderStateBlock2D tmp(property.blendState);
 
             for (int i = 0; i < layerQty; ++i) {
-                ratio = One - i / static_cast<double>(layerQty);
+                rate = One - i / static_cast<double>(layerQty);
                 for (auto& r : elements)
-                    s3d::Circle(r.pos, r.size * ratio).draw(r.color);
+                    s3d::Circle(r.pos, r.size * rate).draw(r.color);
             }
         }
     };
@@ -752,22 +740,22 @@ namespace Particle2D
 
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Dot& pos(         Vec2   pos)    { property.pos         = pos;                          return *this; }
-        Dot& speed(       double speed)  { property.speed       = fixSpeed(speed);              return *this; }
-        Dot& color(       ColorF color)  { property.color       = color;                        return *this; }
-        Dot& angle(       double degree) { property.radian      = math.convRadian(degree);      return *this; }
-        Dot& angleRange(  double degree) { property.radianRange = math.convRadianRange(degree); return *this; }
-        Dot& accelSpeed(  double speed)  { property.accelSpeed  = speed;                        return *this; }
-        Dot& accelColor(  ColorF color)  { property.accelColor  = color;                        return *this; }
-        Dot& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);       return *this; }
-        Dot& gravityAngle(double degree) { property.gravityRad  = math.convRadian(degree);      return *this; }
-        Dot& random(      double power)  { property.randPow     = fixRandomPower(power);        return *this; }
+        Dot& pos(         Vec2   pos)    { property.pos         = pos;                        return *this; }
+        Dot& speed(       double speed)  { property.speed       = fixSpeed(speed);            return *this; }
+        Dot& color(       ColorF color)  { property.color       = color;                      return *this; }
+        Dot& angle(       double degree) { property.radian      = math.toRadian(degree);      return *this; }
+        Dot& angleRange(  double degree) { property.radianRange = math.toRadianRange(degree); return *this; }
+        Dot& accelSpeed(  double speed)  { property.accelSpeed  = speed;                      return *this; }
+        Dot& accelColor(  ColorF color)  { property.accelColor  = color;                      return *this; }
+        Dot& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);     return *this; }
+        Dot& gravityAngle(double degree) { property.gravityRad  = math.toRadian(degree);      return *this; }
+        Dot& random(      double power)  { property.randPow     = fixRandomPower(power);      return *this; }
         Dot& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
 
         // スムージング
         Dot& smoothing(bool isSmooth)
         {
-            property.samplerState = isSmooth ? s3d::SamplerState::Default2D :
+            property.samplerState = isSmooth ? s3d::SamplerState::ClampLinear :
                                                s3d::SamplerState::ClampNearest;
             return *this;
         }
@@ -779,11 +767,12 @@ namespace Particle2D
             if (res < 1.0) res = 1.0;
             if (res > 8.0) res = 8.0;
 
+
             if (res != oldRes) {
                 property.resolution = res;
 
                 // 新しいサイズのブランクイメージを作る
-                double scale = convReso2Scale(res);
+                double scale = toScale(res);
                 property.blankImg = s3d::Image(static_cast<int>(Window::Width()  * scale),
                                                static_cast<int>(Window::Height() * scale));
 
@@ -805,19 +794,22 @@ namespace Particle2D
             double radShake       = (property.radianRange * property.randPow + property.randPow) * 0.05;
             double radRangeHalf   = property.radianRange * Half;
             double speedRandLower = -property.randPow * Half;
-            Vec2   pos            = property.pos * convReso2Scale(property.resolution);
+            Vec2   pos            = property.pos * toScale(property.resolution);
 
-            for (int i = 0; i < quantity; ++i) {
-                // 角度
-                shake = Random(-radShake, radShake) * Random(One) * Random(One);
-                range = Random(-radRangeHalf, radRangeHalf);
-                rad   = fmod(property.radian + range + shake + TwoPi, TwoPi);
+            if (property.pos.x >= 0.0 && property.pos.x < Window::Width() &&
+                property.pos.y >= 0.0 && property.pos.y < Window::Height()) {
+                for (int i = 0; i < quantity; ++i) {
+                    // 角度
+                    shake = Random(-radShake, radShake) * Random(One) * Random(One);
+                    range = Random(-radRangeHalf, radRangeHalf);
+                    rad = fmod(property.radian + range + shake + TwoPi, TwoPi);
 
-                // スピード
-                speed = property.speed + Random(speedRandLower, property.randPow);
+                    // スピード
+                    speed = property.speed + Random(speedRandLower, property.randPow);
 
-                // 要素を追加
-                elements.emplace_back(Element(pos, rad, speed, property.color));
+                    // 要素を追加
+                    elements.emplace_back(Element(pos, rad, speed, property.color));
+                }
             }
         }
 
@@ -833,15 +825,28 @@ namespace Particle2D
             double gravityCos  = cos(property.gravityRad) * timeScale;
 
             for (auto& r : elements) {
-                // 色の変化
-                r.color += property.accelColor * timeScale;  // ColorFを「+=」した場合、対象はRGBのみ
-                if (!r.alphaLock)
-                    r.color.a += property.accelColor.a * timeScale;
-                if (r.color.a <= 0.0) {
-                    r.enable = false;
-                    continue;
+                if (r.fadeout) {
+                    // フェードアウト
+                    r.color.a *= property.fadeoutRate;
+                    if (r.color.a < FadeoutLimit) {
+                        r.enable = false;
+                        continue;
+                    }
                 }
-                r.alphaLock = false;
+                else {
+                    // アルファの変化
+                    r.color.a += property.accelColor.a * timeScale;
+                    if (r.color.a < 0.0 && property.accelColor.a < 0.0) {
+                        r.enable = false;
+                        continue;
+                    }
+                    // 生存時間を累積
+                    r.liveTime += delta;
+                    r.fadeout = (r.liveTime > property.fadeoutTime);
+                }
+
+                // RGBの変化
+                r.color += property.accelColor * timeScale;  // ColorF型の演算は、アルファは対象外
 
                 // 移動
                 r.oldPos = r.pos;
@@ -853,18 +858,12 @@ namespace Particle2D
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
-                // 画面外かどうか（posはイメージ配列の添え字になるので、そのチェックも兼ねる）
+                // 領域外の判定（posはイメージ配列の添え字になるので、そのチェックも兼ねる）
                 if ((r.pos.x < 0.0) || (r.pos.x >= imgWidth) ||
                     (r.pos.y < 0.0) || (r.pos.y >= imgHeight)) {
                     r.enable = false;
                     continue;
                 }
-
-                // 動いていないなら、アルファを強制的に下げる
-                //if (math.lengthPow(r.pos - r.oldPos) < MovingEpsilonPow) {
-                //    fadeoutAlpha(r, AlphaFadeRatio);
-                //    if (!r.enable) continue;
-                //}
 
                 // スピードの変化
                 r.speed += property.accelSpeed * timeScale;
@@ -872,7 +871,7 @@ namespace Particle2D
             }
 
             // 衝突判定
-            scalingObstacles(convReso2Scale(property.resolution));
+            scalingObstacles(toScale(property.resolution));
             collisionAll(elements, delta);
 
             // 無効な粒子を削除
@@ -922,17 +921,78 @@ namespace Particle2D
             for (auto& r : elements) {
                 pos = r.pos.asPoint();  // Vec2型のposを、Point型に変換
 
-                // 現在位置（座標）の色を求める（自前の加算ブレンディング）
+                                        // 現在位置（座標）の色を求める（自前の加算ブレンディング）
                 src = property.img[pos];
                 dst.r = src.r + r.color.r * r.color.a;
                 dst.g = src.g + r.color.g * r.color.a;
                 dst.b = src.b + r.color.b * r.color.a;
                 dst.a = src.a + r.color.a;  // 本来は違うかもしれないが見栄えがよい（キラキラする）
 
-                // 求めた色をセット
+                                            // 求めた色をセット
                 property.img[pos].set(dst);
             }
-            
+
+            // 動的テクスチャを更新
+            property.tex.fill(property.img);
+
+            // 動的テクスチャをドロー
+            s3d::RenderStateBlock2D tmp(property.blendState, property.samplerState);
+            property.tex.scaled(property.resolution).draw();
+        }
+    };
+
+
+
+
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    // 【Dotを継承】点のパーティクル（加算合成）
+    //
+    class DotTailed : public Dot
+    {
+    public:
+        // 【メソッド】ドロー（オーバーライド）
+        void draw()
+        {
+            // イメージをクリア（clear関数もあるが連続で呼び出すとエラーする）
+            property.img = property.blankImg;
+
+            // 【テスト】
+            int lenMax = -1;
+
+            // イメージを作成（粒子の数だけ処理。posが確実にimg[n]の範囲内であること）
+            for (auto& r : elements) {
+                Vec2   normal = math.normalize(r.pos - r.oldPos);
+                int    len    = static_cast<int>(math.distance(r.pos, r.oldPos) * 0.99);
+                Vec2   pos    = r.pos;
+                double alpha  = r.color.a;
+                ColorF src, dst;
+                Point  point;
+
+                // 【テスト】
+                if (len > lenMax) lenMax = len;
+
+                for (int i = 0; i <= len; ++i) {
+                    // 現在位置（座標）の色を求める（自前の加算ブレンディング）
+                    point = pos.asPoint();
+                    src = property.img[point];
+                    dst.r = src.r + r.color.r * alpha;
+                    dst.g = src.g + r.color.g * alpha;
+                    dst.b = src.b + r.color.b * alpha;
+                    dst.a = src.a + alpha;  // 本来は違うかもしれないが見栄えがよい（キラキラする）
+
+                    // 求めた色をセット
+                    property.img[point].set(dst);
+
+                    alpha *= 0.925;
+                    if (alpha < FadeoutLimit) break;
+                    pos -= normal;
+                }
+            }
+
+            // 【テスト】
+            font(U"lenMax: ", lenMax).draw();
+
             // 動的テクスチャを更新
             property.tex.fill(property.img);
 
@@ -993,19 +1053,19 @@ namespace Particle2D
 
 
         // 【セッタ】各初期パラメータ。メソッドチェーン方式
-        Star& pos(         Vec2   pos)    { property.pos         = pos;                          return *this; }
-        Star& size(        double size)   { property.size        = fixSize(size);                return *this; }
-        Star& speed(       double speed)  { property.speed       = fixSpeed(speed);              return *this; }
-        Star& color(       ColorF color)  { property.color       = color;                        return *this; }
-        Star& angle(       double degree) { property.radian      = math.convRadian(degree);      return *this; }
-        Star& angleRange(  double degree) { property.radianRange = math.convRadianRange(degree); return *this; }
-        Star& accelSize(   double size)   { property.accelSize   = size;                         return *this; }
-        Star& accelSpeed(  double speed)  { property.accelSpeed  = speed;                        return *this; }
-        Star& accelColor(  ColorF color)  { property.accelColor  = color;                        return *this; }
-        Star& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);       return *this; }
-        Star& gravityAngle(double degree) { property.gravityRad  = math.convRadian(degree);      return *this; }
-        Star& random(      double power)  { property.randPow     = fixRandomPower(power);        return *this; }
-        Star& rotate(      double speed)  { property.rotateSpeed = speed;                        return *this; }
+        Star& pos(         Vec2   pos)    { property.pos         = pos;                        return *this; }
+        Star& size(        double size)   { property.size        = fixSize(size);              return *this; }
+        Star& speed(       double speed)  { property.speed       = fixSpeed(speed);            return *this; }
+        Star& color(       ColorF color)  { property.color       = color;                      return *this; }
+        Star& angle(       double degree) { property.radian      = math.toRadian(degree);      return *this; }
+        Star& angleRange(  double degree) { property.radianRange = math.toRadianRange(degree); return *this; }
+        Star& accelSize(   double size)   { property.accelSize   = size;                       return *this; }
+        Star& accelSpeed(  double speed)  { property.accelSpeed  = speed;                      return *this; }
+        Star& accelColor(  ColorF color)  { property.accelColor  = color;                      return *this; }
+        Star& gravity(     double power)  { property.gravityPow  = fixGravityPower(power);     return *this; }
+        Star& gravityAngle(double degree) { property.gravityRad  = math.toRadian(degree);      return *this; }
+        Star& random(      double power)  { property.randPow     = fixRandomPower(power);      return *this; }
+        Star& rotate(      double speed)  { property.rotateSpeed = speed;                      return *this; }
         Star& blendState(s3d::BlendState state) { property.blendState = state; return *this; }
 
         
@@ -1051,19 +1111,32 @@ namespace Particle2D
             double gravityCos   = cos(property.gravityRad) * timeScale;
 
             for (auto& r : elements) {
-                // 色の変化
-                r.color += property.accelColor * timeScale;  // ColorFを「+=」した場合、対象はRGBのみ
-                if (!r.alphaLock)
-                    r.color.a += property.accelColor.a * timeScale;
-                if (r.color.a <= 0.0) {
-                    r.enable = false;
-                    continue;
+                if (r.fadeout) {
+                    // フェードアウト
+                    r.color.a *= property.fadeoutRate;
+                    if (r.color.a < FadeoutLimit) {
+                        r.enable = false;
+                        continue;
+                    }
                 }
-                r.alphaLock = false;
+                else {
+                    // アルファの変化
+                    r.color.a += property.accelColor.a * timeScale;
+                    if (r.color.a < 0.0 && property.accelColor.a < 0.0) {
+                        r.enable = false;
+                        continue;
+                    }
+                    // 生存時間を累積
+                    r.liveTime += delta;
+                    r.fadeout = (r.liveTime > property.fadeoutTime);
+                }
+
+                // RGBの変化
+                r.color += property.accelColor * timeScale;  // ColorF型の演算は、アルファは対象外
 
                 // サイズの変化
                 r.size += property.accelSize * timeScale;
-                if (r.size <= 0.0) {
+                if (r.size < 0.0) {
                     r.enable = false;
                     continue;
                 }
@@ -1078,18 +1151,13 @@ namespace Particle2D
                 r.pos.x += gravityCos * r.gravity;
                 r.pos.y += gravitySin * r.gravity;
 
-                // 画面外かどうか
-                if ((r.pos.x <= -r.size) || (r.pos.x >= windowWidth  + r.size) ||
-                    (r.pos.y <= -r.size) || (r.pos.y >= windowHeight + r.size)) {
+                // 領域外の判定
+                double margin = r.size + WorldMargin;
+                if ((r.pos.x < -margin) || (r.pos.x > windowWidth  + margin) ||
+                    (r.pos.y < -margin) || (r.pos.y > windowHeight + margin)) {
                     r.enable = false;
                     continue;
                 }
-
-                // 動いていないなら、アルファを強制的に下げる
-                //if (math.lengthPow(r.pos - r.oldPos) < MovingEpsilonPow) {
-                //    fadeoutAlpha(r, AlphaFadeRatio);
-                //    if (!r.enable) continue;
-                //}
 
                 // スピードの変化
                 r.speed += property.accelSpeed * timeScale;
@@ -1192,13 +1260,13 @@ namespace Particle2D
         // 【メソッド】ドロー（オーバーライド）
         void draw()
         {
-            double ratio;
+            double rate;
             s3d::RenderStateBlock2D tmp(property.blendState);
 
             for (int i = 0; i < layerQty; ++i) {
-                ratio = One - i / static_cast<double>(layerQty) * Half;
+                rate = One - i / static_cast<double>(layerQty) * Half;
                 for (auto& r : elements)
-                    Shape2D::Star(r.size * ratio, r.pos, r.rotateRad).draw(r.color);
+                    Shape2D::Star(r.size * rate, r.pos, r.rotateRad).draw(r.color);
             }
         }
     };
@@ -1216,13 +1284,13 @@ namespace Particle2D
         // 【メソッド】ドロー（オーバーライド）
         void draw()
         {
-            double ratio;
+            double rate;
             s3d::RenderStateBlock2D tmp(property.blendState);
 
             for (int i = 0; i < layerQty; ++i) {
-                ratio = One - i / static_cast<double>(layerQty) * Half;
+                rate = One - i / static_cast<double>(layerQty) * Half;
                 for (auto& r : elements)
-                    s3d::RectF(Arg::center = r.pos, r.size * RootTwo * ratio).rotated(r.rotateRad).draw(r.color);
+                    s3d::RectF(Arg::center = r.pos, r.size * RootTwo * rate).rotated(r.rotateRad).draw(r.color);
             }
         }
     };
@@ -1240,13 +1308,13 @@ namespace Particle2D
         // 【メソッド】ドロー（オーバーライド）
         void draw()
         {
-            double ratio;
+            double rate;
             s3d::RenderStateBlock2D tmp(property.blendState);
 
             for (int i = 0; i < layerQty; ++i) {
-                ratio = One - i / static_cast<double>(layerQty) * Half;
+                rate = One - i / static_cast<double>(layerQty) * Half;
                 for (auto& r : elements)
-                    Shape2D::Pentagon(r.size * ratio, r.pos, r.rotateRad).draw(r.color);
+                    Shape2D::Pentagon(r.size * rate, r.pos, r.rotateRad).draw(r.color);
             }
         }
     };
